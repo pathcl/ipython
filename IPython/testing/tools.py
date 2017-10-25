@@ -5,18 +5,9 @@ Authors
 - Fernando Perez <Fernando.Perez@berkeley.edu>
 """
 
-from __future__ import absolute_import
 
-#-----------------------------------------------------------------------------
-#  Copyright (C) 2009 The IPython Development Team
-#
-#  Distributed under the terms of the BSD License.  The full license is in
-#  the file COPYING, distributed as part of this software.
-#-----------------------------------------------------------------------------
-
-#-----------------------------------------------------------------------------
-# Imports
-#-----------------------------------------------------------------------------
+# Copyright (c) IPython Development Team.
+# Distributed under the terms of the Modified BSD License.
 
 import os
 import re
@@ -26,6 +17,7 @@ import tempfile
 from contextlib import contextmanager
 from io import StringIO
 from subprocess import Popen, PIPE
+from unittest.mock import patch
 
 try:
     # These tools are used by parts of the runtime, so we make the nose
@@ -46,9 +38,6 @@ from IPython.utils.encoding import DEFAULT_ENCODING
 from . import decorators as dec
 from . import skipdoctest
 
-#-----------------------------------------------------------------------------
-# Functions and classes
-#-----------------------------------------------------------------------------
 
 # The docstring for full_path doctests differently on win32 (different path
 # separator) so just skip the doctest there.  The example remains informative.
@@ -202,13 +191,7 @@ def ipexec(fname, options=None, commands=()):
     """
     if options is None: options = []
 
-    # For these subprocess calls, eliminate all prompt printing so we only see
-    # output from script execution
-    prompt_opts = [ '--PromptManager.in_template=""',
-                    '--PromptManager.in2_template=""',
-                    '--PromptManager.out_template=""'
-    ]
-    cmdargs = default_argv() + prompt_opts + options
+    cmdargs = default_argv() + options
 
     test_dir = os.path.dirname(__file__)
 
@@ -303,6 +286,13 @@ class TempFileMixin(object):
                 # delete it.  I have no clue why
                 pass
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.tearDown()
+
+
 pair_fail_msg = ("Testing {0}\n\n"
                 "In:\n"
                 "  {1!r}\n"
@@ -332,15 +322,7 @@ def check_pairs(func, pairs):
         assert out == expected, pair_fail_msg.format(name, inp, expected, out)
 
 
-if py3compat.PY3:
-    MyStringIO = StringIO
-else:
-    # In Python 2, stdout/stderr can have either bytes or unicode written to them,
-    # so we need a class that can handle both.
-    class MyStringIO(StringIO):
-        def write(self, s):
-            s = py3compat.cast_unicode(s, encoding=DEFAULT_ENCODING)
-            super(MyStringIO, self).write(s)
+MyStringIO = StringIO
 
 _re_type = type(re.compile(r''))
 
@@ -364,7 +346,7 @@ class AssertPrints(object):
     """
     def __init__(self, s, channel='stdout', suppress=True):
         self.s = s
-        if isinstance(self.s, (py3compat.string_types, _re_type)):
+        if isinstance(self.s, (str, _re_type)):
             self.s = [self.s]
         self.channel = channel
         self.suppress = suppress
@@ -443,6 +425,25 @@ def make_tempfile(name):
     finally:
         os.unlink(name)
 
+def fake_input(inputs):
+    """Temporarily replace the input() function to return the given values
+
+    Use as a context manager:
+
+    with fake_input(['result1', 'result2']):
+        ...
+
+    Values are returned in order. If input() is called again after the last value
+    was used, EOFError is raised.
+    """
+    it = iter(inputs)
+    def mock_input(prompt=''):
+        try:
+            return next(it)
+        except StopIteration:
+            raise EOFError('No more inputs given')
+
+    return patch('builtins.input', mock_input)
 
 def help_output_test(subcommand=''):
     """test that `ipython [subcommand] -h` works"""
@@ -462,6 +463,6 @@ def help_all_output_test(subcommand=''):
     nt.assert_equal(rc, 0, err)
     nt.assert_not_in("Traceback", err)
     nt.assert_in("Options", out)
-    nt.assert_in("Class parameters", out)
+    nt.assert_in("Class", out)
     return out, err
 

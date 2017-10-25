@@ -4,7 +4,6 @@ They should honor the line number argument, at least.
 
 Contributions are *very* welcome.
 """
-from __future__ import print_function
 
 import os
 import pipes
@@ -54,7 +53,7 @@ def install_editor(template, wait=False):
         if sys.platform.startswith('win'):
             cmd = shlex.split(cmd)
         proc = subprocess.Popen(cmd, shell=True)
-        if wait and proc.wait() != 0:
+        if proc.wait() != 0:
             raise TryNext()
         if wait:
             py3compat.input("Press Enter when done editing:")

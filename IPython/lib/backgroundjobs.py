@@ -21,7 +21,6 @@ separate implementation).
 An example notebook is provided in our documentation illustrating interactive
 use of the system.
 """
-from __future__ import print_function
 
 #*****************************************************************************
 #       Copyright (C) 2005-2006 Fernando Perez <fperez@colorado.edu>
@@ -37,7 +36,6 @@ import threading
 from IPython import get_ipython
 from IPython.core.ultratb import AutoFormattedTB
 from logging import error
-from IPython.utils.py3compat import string_types
 
 
 class BackgroundJobManager(object):
@@ -172,7 +170,7 @@ class BackgroundJobManager(object):
         if callable(func_or_exp):
             kw  = kwargs.get('kw',{})
             job = BackgroundJobFunc(func_or_exp,*args,**kw)
-        elif isinstance(func_or_exp, string_types):
+        elif isinstance(func_or_exp, str):
             if not args:
                 frame = sys._getframe(1)
                 glob, loc = frame.f_globals, frame.f_locals

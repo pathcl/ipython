@@ -11,10 +11,8 @@ import sys
 import errno
 import shutil
 import random
-import tempfile
 import glob
 from warnings import warn
-from hashlib import md5
 
 from IPython.utils.process import system
 from IPython.utils import py3compat
@@ -38,7 +36,7 @@ if sys.platform == 'win32':
         --------
 
         >>> get_long_path_name('c:\\docume~1')
-        u'c:\\\\Documents and Settings'
+        'c:\\\\Documents and Settings'
 
         """
         try:
@@ -73,16 +71,21 @@ def get_long_path_name(path):
 
 def unquote_filename(name, win32=(sys.platform=='win32')):
     """ On Windows, remove leading and trailing quotes from filenames.
+
+    This function has been deprecated and should not be used any more:
+    unquoting is now taken care of by :func:`IPython.utils.process.arg_split`.
     """
+    warn("'unquote_filename' is deprecated since IPython 5.0 and should not "
+         "be used anymore", DeprecationWarning, stacklevel=2)
     if win32:
         if name.startswith(("'", '"')) and name.endswith(("'", '"')):
             name = name[1:-1]
     return name
 
+
 def compress_user(path):
     """Reverse of :func:`os.path.expanduser`
-    """    
-    path = py3compat.unicode_to_str(path, sys.getfilesystemencoding())
+    """
     home = os.path.expanduser('~')
     if path.startswith(home):
         path =  "~" + path[len(home):]
@@ -93,18 +96,13 @@ def get_py_filename(name, force_win32=None):
 
     If the given name is not a file, it adds '.py' and searches again.
     Raises IOError with an informative message if the file isn't found.
-
-    On Windows, apply Windows semantics to the filename. In particular, remove
-    any quoting that has been applied to it. This option can be forced for
-    testing purposes.
     """
 
     name = os.path.expanduser(name)
-    if force_win32 is None:
-        win32 = (sys.platform == 'win32')
-    else:
-        win32 = force_win32
-    name = unquote_filename(name, win32=win32)
+    if force_win32 is not None:
+        warn("The 'force_win32' argument to 'get_py_filename' is deprecated "
+             "since IPython 5.0 and should not be used anymore",
+            DeprecationWarning, stacklevel=2)
     if not os.path.isfile(name) and not name.endswith('.py'):
         name += '.py'
     if os.path.isfile(name):
@@ -154,11 +152,11 @@ def filefind(filename, path_dirs=None):
 
     if path_dirs is None:
         path_dirs = ("",)
-    elif isinstance(path_dirs, py3compat.string_types):
+    elif isinstance(path_dirs, str):
         path_dirs = (path_dirs,)
 
     for path in path_dirs:
-        if path == '.': path = py3compat.getcwd()
+        if path == '.': path = os.getcwd()
         testname = expand_path(os.path.join(path, filename))
         if os.path.isfile(testname):
             return os.path.abspath(testname)
@@ -255,31 +253,31 @@ def get_xdg_cache_dir():
 
 @undoc
 def get_ipython_dir():
-    warn("get_ipython_dir has moved to the IPython.paths module")
+    warn("get_ipython_dir has moved to the IPython.paths module since IPython 4.0.", stacklevel=2)
     from IPython.paths import get_ipython_dir
     return get_ipython_dir()
 
 @undoc
 def get_ipython_cache_dir():
-    warn("get_ipython_cache_dir has moved to the IPython.paths module")
+    warn("get_ipython_cache_dir has moved to the IPython.paths module since IPython 4.0.", stacklevel=2)
     from IPython.paths import get_ipython_cache_dir
     return get_ipython_cache_dir()
 
 @undoc
 def get_ipython_package_dir():
-    warn("get_ipython_package_dir has moved to the IPython.paths module")
+    warn("get_ipython_package_dir has moved to the IPython.paths module since IPython 4.0.", stacklevel=2)
     from IPython.paths import get_ipython_package_dir
     return get_ipython_package_dir()
 
 @undoc
 def get_ipython_module_path(module_str):
-    warn("get_ipython_module_path has moved to the IPython.paths module")
+    warn("get_ipython_module_path has moved to the IPython.paths module since IPython 4.0.", stacklevel=2)
     from IPython.paths import get_ipython_module_path
     return get_ipython_module_path(module_str)
 
 @undoc
 def locate_profile(profile='default'):
-    warn("locate_profile has moved to the IPython.paths module")
+    warn("locate_profile has moved to the IPython.paths module since IPython 4.0.", stacklevel=2)
     from IPython.paths import locate_profile
     return locate_profile(profile=profile)
 
@@ -366,13 +364,6 @@ def target_update(target,deps,cmd):
     if target_outdated(target,deps):
         system(cmd)
 
-@undoc
-def filehash(path):
-    """Make an MD5 hash of a file, ignoring any differences in line
-    ending characters."""
-    warn("filehash() is deprecated")
-    with open(path, "rU") as f:
-        return md5(py3compat.str_to_bytes(f.read())).hexdigest()
 
 ENOLINK = 1998
 

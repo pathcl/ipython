@@ -3,27 +3,15 @@
 Note: this module is named 'osm' instead of 'os' to avoid a collision with the
 builtin.
 """
-from __future__ import print_function
-#-----------------------------------------------------------------------------
-#  Copyright (c) 2012 The IPython Development Team.
-#
-#  Distributed under the terms of the Modified BSD License.
-#
-#  The full license is in the file COPYING.txt, distributed with this software.
-#-----------------------------------------------------------------------------
+# Copyright (c) IPython Development Team.
+# Distributed under the terms of the Modified BSD License.
 
-#-----------------------------------------------------------------------------
-# Imports
-#-----------------------------------------------------------------------------
-
-# Stdlib
 import io
 import os
 import re
 import sys
 from pprint import pformat
 
-# Our own packages
 from IPython.core import magic_arguments
 from IPython.core import oinspect
 from IPython.core import page
@@ -34,15 +22,10 @@ from IPython.core.magic import  (
 )
 from IPython.testing.skipdoctest import skip_doctest
 from IPython.utils.openpy import source_to_unicode
-from IPython.utils.path import unquote_filename
 from IPython.utils.process import abbrev_cwd
-from IPython.utils import py3compat
-from IPython.utils.py3compat import unicode_type
 from IPython.utils.terminal import set_term_title
 
-#-----------------------------------------------------------------------------
-# Magic implementation classes
-#-----------------------------------------------------------------------------
+
 @magics_class
 class OSMagics(Magics):
     """Magics to interact with the underlying OS (shell-type functionality).
@@ -97,11 +80,21 @@ class OSMagics(Magics):
           In [9]: show $$PATH
           /usr/local/lf9560/bin:/usr/local/intel/compiler70/ia32/bin:...
 
-        You can use the alias facility to acess all of $PATH.  See the %rehashx
+        You can use the alias facility to access all of $PATH.  See the %rehashx
         function, which automatically creates aliases for the contents of your
         $PATH.
 
-        If called with no parameters, %alias prints the current alias table."""
+        If called with no parameters, %alias prints the current alias table
+        for your system.  For posix systems, the default aliases are 'cat',
+        'cp', 'mv', 'rm', 'rmdir', and 'mkdir', and other platform-specific
+        aliases are added.  For windows-based systems, the default aliases are
+        'copy', 'ddir', 'echo', 'ls', 'ldir', 'mkdir', 'ren', and 'rmdir'.
+
+        You can see the definition of alias by adding a question mark in the
+        end::
+
+          In [1]: cat?
+          Repr: <alias cat for 'cat'>"""
 
         par = parameter_s.strip()
         if not par:
@@ -180,7 +173,7 @@ class OSMagics(Magics):
                 winext += '|py'
             execre = re.compile(r'(.*)\.(%s)$' % winext,re.IGNORECASE)
             isexec = lambda fname:os.path.isfile(fname) and execre.match(fname)
-        savedir = py3compat.getcwd()
+        savedir = os.getcwd()
 
         # Now walk the paths looking for executables to alias.
         try:
@@ -242,7 +235,10 @@ class OSMagics(Magics):
           In [9]: pwd
           Out[9]: '/home/tsuser/sprint/ipython'
         """
-        return py3compat.getcwd()
+        try:
+            return os.getcwd()
+        except FileNotFoundError:
+            raise UsageError("CWD no longer exists - please use %cd to change directory.")
 
     @skip_doctest
     @line_magic
@@ -286,7 +282,12 @@ class OSMagics(Magics):
           /home/tsuser/parent/child
         """
 
-        oldcwd = py3compat.getcwd()
+        try:
+            oldcwd = os.getcwd()
+        except FileNotFoundError:
+            # Happens if the CWD has been deleted.
+            oldcwd = None
+
         numcd = re.match(r'(-)(\d+)$',parameter_s)
         # jump in directory history by number
         if numcd:
@@ -324,10 +325,7 @@ class OSMagics(Magics):
 
 
         else:
-            #turn all non-space-escaping backslashes to slashes,
-            # for c:\windows\directory\names\
-            parameter_s = re.sub(r'\\(?! )','/', parameter_s)
-            opts,ps = self.parse_options(parameter_s,'qb',mode='string')
+            opts, ps = self.parse_options(parameter_s, 'qb', mode='string')
         # jump to previous
         if ps == '-':
             try:
@@ -348,18 +346,16 @@ class OSMagics(Magics):
                         raise UsageError("Bookmark '%s' not found.  "
                               "Use '%%bookmark -l' to see your bookmarks." % ps)
 
-        # strip extra quotes on Windows, because os.chdir doesn't like them
-        ps = unquote_filename(ps)
         # at this point ps should point to the target dir
         if ps:
             try:
                 os.chdir(os.path.expanduser(ps))
                 if hasattr(self.shell, 'term_title') and self.shell.term_title:
-                    set_term_title('IPython: ' + abbrev_cwd())
+                    set_term_title(self.shell.term_title_format.format(cwd=abbrev_cwd()))
             except OSError:
                 print(sys.exc_info()[1])
             else:
-                cwd = py3compat.getcwd()
+                cwd = os.getcwd()
                 dhist = self.shell.user_ns['_dh']
                 if oldcwd != cwd:
                     dhist.append(cwd)
@@ -368,8 +364,8 @@ class OSMagics(Magics):
         else:
             os.chdir(self.shell.home_dir)
             if hasattr(self.shell, 'term_title') and self.shell.term_title:
-                set_term_title('IPython: ' + '~')
-            cwd = py3compat.getcwd()
+                set_term_title(self.shell.term_title_format.format(cwd="~"))
+            cwd = os.getcwd()
             dhist = self.shell.user_ns['_dh']
 
             if oldcwd != cwd:
@@ -431,7 +427,7 @@ class OSMagics(Magics):
             err = "refusing to set env var with whitespace: '{0}'"
             err = err.format(val)
             raise UsageError(err)
-        os.environ[py3compat.cast_bytes_py2(var)] = py3compat.cast_bytes_py2(val)
+        os.environ[var] = val
         print('env: {0}={1}'.format(var,val))
 
     @line_magic
@@ -443,8 +439,8 @@ class OSMagics(Magics):
         """
 
         dir_s = self.shell.dir_stack
-        tgt = os.path.expanduser(unquote_filename(parameter_s))
-        cwd = py3compat.getcwd().replace(self.shell.home_dir,'~')
+        tgt = os.path.expanduser(parameter_s)
+        cwd = os.getcwd().replace(self.shell.home_dir,'~')
         if tgt:
             self.cd(parameter_s)
         dir_s.insert(0,cwd)
@@ -732,7 +728,7 @@ class OSMagics(Magics):
             if not args:
                 raise UsageError("%bookmark: You must specify the bookmark name")
             elif len(args)==1:
-                bkms[args[0]] = py3compat.getcwd()
+                bkms[args[0]] = os.getcwd()
             elif len(args)==2:
                 bkms[args[0]] = args[1]
         self.shell.db['bookmarks'] = bkms
@@ -771,7 +767,7 @@ class OSMagics(Magics):
              'The file will be created if it does not exist.'
     )
     @magic_arguments.argument(
-        'filename', type=unicode_type,
+        'filename', type=str,
         help='file to write'
     )
     @cell_magic
@@ -781,8 +777,8 @@ class OSMagics(Magics):
         The file will be overwritten unless the -a (--append) flag is specified.
         """
         args = magic_arguments.parse_argstring(self.writefile, line)
-        filename = os.path.expanduser(unquote_filename(args.filename))
-        
+        filename = os.path.expanduser(args.filename)
+
         if os.path.exists(filename):
             if args.append:
                 print("Appending to %s" % filename)

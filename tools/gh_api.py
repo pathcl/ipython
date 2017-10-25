@@ -1,5 +1,4 @@
 """Functions for Github API requests."""
-from __future__ import print_function
 
 try:
     input = raw_input
@@ -49,10 +48,11 @@ def get_auth_token():
         return token
 
     print("Please enter your github username and password. These are not "
-           "stored, only used to get an oAuth token. You can revoke this at "
-           "any time on Github.")
-    user = input("Username: ")
-    pw = getpass.getpass("Password: ")
+          "stored, only used to get an oAuth token. You can revoke this at "
+          "any time on Github.\n"
+          "Username: ", file=sys.stderr, end='')
+    user = input('')
+    pw = getpass.getpass("Password: ", stream=sys.stderr)
 
     auth_request = {
       "scopes": [
@@ -64,13 +64,14 @@ def get_auth_token():
     }
     response = requests.post('https://api.github.com/authorizations',
                             auth=(user, pw), data=json.dumps(auth_request))
-    if response.status_code == 401 and response.headers.get('X-GitHub-OTP') == 'required; sms':
-        print("Your login API resquest a SMS one time password")
-        sms_pw = getpass.getpass("SMS password: ")
+    if response.status_code == 401 and \
+            'required;' in response.headers.get('X-GitHub-OTP', ''):
+        print("Your login API requested a one time password", file=sys.stderr)
+        otp = getpass.getpass("One Time Password: ", stream=sys.stderr)
         response = requests.post('https://api.github.com/authorizations',
                             auth=(user, pw), 
                             data=json.dumps(auth_request),
-                            headers={'X-GitHub-OTP':sms_pw})
+                            headers={'X-GitHub-OTP':otp})
     response.raise_for_status()
     token = json.loads(response.text)['token']
     keyring.set_password('github', fake_username, token)

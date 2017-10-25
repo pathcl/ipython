@@ -9,17 +9,13 @@ import os
 import tempfile
 import shutil
 import subprocess
+from base64 import encodebytes
 
 from IPython.utils.process import find_cmd, FindCmdError
 from traitlets.config import get_config
 from traitlets.config.configurable import SingletonConfigurable
 from traitlets import List, Bool, Unicode
-from IPython.utils.py3compat import cast_unicode, cast_unicode_py2 as u, PY3
-
-try: # Py3
-    from base64 import encodebytes
-except ImportError: # Py2
-    from base64 import encodestring as encodebytes
+from IPython.utils.py3compat import cast_unicode
 
 
 class LaTeXTool(SingletonConfigurable):
@@ -39,24 +35,24 @@ class LaTeXTool(SingletonConfigurable):
         # for display style, the default ["matplotlib", "dvipng"] can
         # be used.  To NOT use dvipng so that other repr such as
         # unicode pretty printing is used, you can use ["matplotlib"].
-        config=True)
+        ).tag(config=True)
 
     use_breqn = Bool(
         True,
         help="Use breqn.sty to automatically break long equations. "
         "This configuration takes effect only for dvipng backend.",
-        config=True)
+        ).tag(config=True)
 
     packages = List(
         ['amsmath', 'amsthm', 'amssymb', 'bm'],
         help="A list of packages to use for dvipng backend. "
         "'breqn' will be automatically appended when use_breqn=True.",
-        config=True)
+        ).tag(config=True)
 
     preamble = Unicode(
         help="Additional preamble to use when generating LaTeX source "
         "for dvipng backend.",
-        config=True)
+        ).tag(config=True)
 
 
 def latex_to_png(s, encode=False, backend=None, wrap=False):
@@ -64,7 +60,7 @@ def latex_to_png(s, encode=False, backend=None, wrap=False):
 
     Parameters
     ----------
-    s : text
+    s : str
         The raw string containing valid inline LaTeX.
     encode : bool, optional
         Should the PNG data base64 encoded to make it JSON'able.
@@ -165,20 +161,20 @@ def genelatex(body, wrap):
     """Generate LaTeX document for dvipng backend."""
     lt = LaTeXTool.instance()
     breqn = wrap and lt.use_breqn and kpsewhich("breqn.sty")
-    yield u(r'\documentclass{article}')
+    yield r'\documentclass{article}'
     packages = lt.packages
     if breqn:
         packages = packages + ['breqn']
     for pack in packages:
-        yield u(r'\usepackage{{{0}}}'.format(pack))
-    yield u(r'\pagestyle{empty}')
+        yield r'\usepackage{{{0}}}'.format(pack)
+    yield r'\pagestyle{empty}'
     if lt.preamble:
         yield lt.preamble
-    yield u(r'\begin{document}')
+    yield r'\begin{document}'
     if breqn:
-        yield u(r'\begin{dmath*}')
+        yield r'\begin{dmath*}'
         yield body
-        yield u(r'\end{dmath*}')
+        yield r'\end{dmath*}'
     elif wrap:
         yield u'$${0}$$'.format(body)
     else:

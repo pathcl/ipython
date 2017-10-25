@@ -9,7 +9,6 @@ Authors:
 * Min RK
 
 """
-from __future__ import print_function
 
 #-----------------------------------------------------------------------------
 #  Copyright (C) 2008  The IPython Development Team
@@ -31,8 +30,7 @@ from IPython.core.application import (
 from IPython.core.profiledir import ProfileDir
 from IPython.utils.importstring import import_item
 from IPython.paths import get_ipython_dir, get_ipython_package_dir
-from IPython.utils import py3compat
-from traitlets import Unicode, Bool, Dict
+from traitlets import Unicode, Bool, Dict, observe
 
 #-----------------------------------------------------------------------------
 # Constants
@@ -149,14 +147,14 @@ class ProfileList(Application):
         )
     ))
 
-    ipython_dir = Unicode(get_ipython_dir(), config=True,
+    ipython_dir = Unicode(get_ipython_dir(),
         help="""
         The name of the IPython directory. This directory is used for logging
         configuration (through profiles), history storage, etc. The default
         is usually $HOME/.ipython. This options can also be specified through
         the environment variable IPYTHONDIR.
         """
-    )
+    ).tag(config=True)
 
 
     def _print_profiles(self, profiles):
@@ -181,10 +179,10 @@ class ProfileList(Application):
             print("Available profiles in %s:" % self.ipython_dir)
             self._print_profiles(profiles)
         
-        profiles = list_profiles_in(py3compat.getcwd())
+        profiles = list_profiles_in(os.getcwd())
         if profiles:
             print()
-            print("Available profiles in current directory (%s):" % py3compat.getcwd())
+            print("Available profiles in current directory (%s):" % os.getcwd())
             self._print_profiles(profiles)
         
         print()
@@ -211,21 +209,24 @@ class ProfileCreate(BaseIPythonApplication):
     name = u'ipython-profile'
     description = create_help
     examples = _create_examples
-    auto_create = Bool(True, config=False)
+    auto_create = Bool(True)
     def _log_format_default(self):
         return "[%(name)s] %(message)s"
 
     def _copy_config_files_default(self):
         return True
 
-    parallel = Bool(False, config=True,
-        help="whether to include parallel computing config files")
-    def _parallel_changed(self, name, old, new):
+    parallel = Bool(False,
+        help="whether to include parallel computing config files"
+    ).tag(config=True)
+
+    @observe('parallel')
+    def _parallel_changed(self, change):
         parallel_files = [   'ipcontroller_config.py',
                             'ipengine_config.py',
                             'ipcluster_config.py'
                         ]
-        if new:
+        if change['new']:
             for cf in parallel_files:
                 self.config_files.append(cf)
         else:

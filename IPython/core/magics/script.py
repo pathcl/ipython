@@ -1,18 +1,8 @@
 """Magic functions for running cells in various scripts."""
-from __future__ import print_function
-#-----------------------------------------------------------------------------
-#  Copyright (c) 2012 The IPython Development Team.
-#
-#  Distributed under the terms of the Modified BSD License.
-#
-#  The full license is in the file COPYING.txt, distributed with this software.
-#-----------------------------------------------------------------------------
 
-#-----------------------------------------------------------------------------
-# Imports
-#-----------------------------------------------------------------------------
+# Copyright (c) IPython Development Team.
+# Distributed under the terms of the Modified BSD License.
 
-# Stdlib
 import errno
 import os
 import sys
@@ -21,8 +11,6 @@ import time
 from subprocess import Popen, PIPE
 import atexit
 
-# Our own packages
-from traitlets.config.configurable import Configurable
 from IPython.core import magic_arguments
 from IPython.core.magic import  (
     Magics, magics_class, line_magic, cell_magic
@@ -30,7 +18,7 @@ from IPython.core.magic import  (
 from IPython.lib.backgroundjobs import BackgroundJobManager
 from IPython.utils import py3compat
 from IPython.utils.process import arg_split
-from traitlets import List, Dict
+from traitlets import List, Dict, default
 
 #-----------------------------------------------------------------------------
 # Magic implementation classes
@@ -79,7 +67,7 @@ class ScriptMagics(Magics):
     with a program in a subprocess, and registers a few top-level
     magics that call %%script with common interpreters.
     """
-    script_magics = List(config=True,
+    script_magics = List(
         help="""Extra script cell magics to define
         
         This generates simple wrappers of `%%script foo` as `%%foo`.
@@ -87,7 +75,8 @@ class ScriptMagics(Magics):
         If you want to add script magics that aren't on your path,
         specify them in script_paths
         """,
-    )
+    ).tag(config=True)
+    @default('script_magics')
     def _script_magics_default(self):
         """default to a common list of programs"""
         
@@ -108,13 +97,13 @@ class ScriptMagics(Magics):
         
         return defaults
     
-    script_paths = Dict(config=True,
+    script_paths = Dict(
         help="""Dict mapping short 'ruby' names to full paths, such as '/opt/secret/bin/ruby'
         
         Only necessary for items in script_magics where the default path will not
         find the right interpreter.
         """
-    )
+    ).tag(config=True)
     
     def __init__(self, shell=None):
         super(ScriptMagics, self).__init__(shell=shell)
@@ -256,6 +245,8 @@ class ScriptMagics(Magics):
 
     def kill_bg_processes(self):
         """Kill all BG processes which are still running."""
+        if not self.bg_processes:
+            return
         for p in self.bg_processes:
             if p.poll() is None:
                 try:
@@ -263,6 +254,9 @@ class ScriptMagics(Magics):
                 except:
                     pass
         time.sleep(0.1)
+        self._gc_bg_processes()
+        if not self.bg_processes:
+            return
         for p in self.bg_processes:
             if p.poll() is None:
                 try:
@@ -270,6 +264,9 @@ class ScriptMagics(Magics):
                 except:
                     pass
         time.sleep(0.1)
+        self._gc_bg_processes()
+        if not self.bg_processes:
+            return
         for p in self.bg_processes:
             if p.poll() is None:
                 try:

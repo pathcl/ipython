@@ -119,7 +119,6 @@ Authors
 - VáclavŠmilauer <eudoxos-AT-arcig.cz>: Prompt generalizations.
 - Skipper Seabold, refactoring, cleanups, pure python addition
 """
-from __future__ import print_function
 
 #-----------------------------------------------------------------------------
 # Imports
@@ -127,6 +126,7 @@ from __future__ import print_function
 
 # Stdlib
 import atexit
+import errno
 import os
 import re
 import sys
@@ -134,23 +134,16 @@ import tempfile
 import ast
 import warnings
 import shutil
-
+from io import StringIO
 
 # Third-party
 from docutils.parsers.rst import directives
-from sphinx.util.compat import Directive
+from docutils.parsers.rst import Directive
 
 # Our own
 from traitlets.config import Config
 from IPython import InteractiveShell
 from IPython.core.profiledir import ProfileDir
-from IPython.utils import io
-from IPython.utils.py3compat import PY3
-
-if PY3:
-    from io import StringIO
-else:
-    from StringIO import StringIO
 
 #-----------------------------------------------------------------------------
 # Globals
@@ -290,18 +283,17 @@ class EmbeddedSphinxShell(object):
         profile = ProfileDir.create_profile_dir(pdir)
 
         # Create and initialize global ipython, but don't start its mainloop.
-        # This will persist across different EmbededSphinxShell instances.
+        # This will persist across different EmbeddedSphinxShell instances.
         IP = InteractiveShell.instance(config=config, profile_dir=profile)
         atexit.register(self.cleanup)
 
-        # io.stdout redirect must be done after instantiating InteractiveShell
-        io.stdout = self.cout
-        io.stderr = self.cout
+        sys.stdout = self.cout
+        sys.stderr = self.cout
 
         # For debugging, so we can see normal output, use this:
         #from IPython.utils.io import Tee
-        #io.stdout = Tee(self.cout, channel='stdout') # dbg
-        #io.stderr = Tee(self.cout, channel='stderr') # dbg
+        #sys.stdout = Tee(self.cout, channel='stdout') # dbg
+        #sys.stderr = Tee(self.cout, channel='stderr') # dbg
 
         # Store a few parts of IPython we'll need.
         self.IP = IP
@@ -366,9 +358,9 @@ class EmbeddedSphinxShell(object):
         source_dir = self.source_dir
         saveargs = decorator.split(' ')
         filename = saveargs[1]
-        # insert relative path to image file in source
-        outfile = os.path.relpath(os.path.join(savefig_dir,filename),
-                    source_dir)
+        # insert relative path to image file in source (as absolute path for Sphinx)
+        outfile = '/' + os.path.relpath(os.path.join(savefig_dir,filename),
+                                        source_dir)
 
         imagerows = ['.. image:: %s'%outfile]
 
@@ -850,14 +842,9 @@ class IPythonDirective(Directive):
         config = self.state.document.settings.env.config
 
         # get config variables to set figure output directory
-        outdir = self.state.document.settings.env.app.outdir
         savefig_dir = config.ipython_savefig_dir
-        source_dir = os.path.dirname(self.state.document.current_source)
-        if savefig_dir is None:
-            savefig_dir = config.html_static_path or '_static'
-        if isinstance(savefig_dir, list):
-            savefig_dir = os.path.join(*savefig_dir)
-        savefig_dir = os.path.join(outdir, savefig_dir)
+        source_dir = self.state.document.settings.env.srcdir
+        savefig_dir = os.path.join(source_dir, savefig_dir)
 
         # get regex and prompt stuff
         rgxin      = config.ipython_rgxin
@@ -876,15 +863,19 @@ class IPythonDirective(Directive):
         (savefig_dir, source_dir, rgxin, rgxout, promptin, promptout,
          mplbackend, exec_lines, hold_count) = self.get_config_options()
 
+        try:
+            os.makedirs(savefig_dir)
+        except OSError as e:
+            if e.errno != errno.EEXIST:
+                raise
+
         if self.shell is None:
             # We will be here many times.  However, when the
             # EmbeddedSphinxShell is created, its interactive shell member
             # is the same for each instance.
 
-            if mplbackend:
+            if mplbackend and 'matplotlib.backends' not in sys.modules:
                 import matplotlib
-                # Repeated calls to use() will not hurt us since `mplbackend`
-                # is the same each time.
                 matplotlib.use(mplbackend)
 
             # Must be called after (potentially) importing matplotlib and
@@ -900,7 +891,6 @@ class IPythonDirective(Directive):
         if not self.state.document.current_source in self.seen_docs:
             self.shell.IP.history_manager.reset()
             self.shell.IP.execution_count = 1
-            self.shell.IP.prompt_manager.width = 0
             self.seen_docs.add(self.state.document.current_source)
 
         # and attach to shell so we don't have to pass them around
@@ -987,7 +977,7 @@ def setup(app):
     setup.app = app
 
     app.add_directive('ipython', IPythonDirective)
-    app.add_config_value('ipython_savefig_dir', None, 'env')
+    app.add_config_value('ipython_savefig_dir', 'savefig', 'env')
     app.add_config_value('ipython_rgxin',
                          re.compile('In \[(\d+)\]:\s?(.*)\s*'), 'env')
     app.add_config_value('ipython_rgxout',
@@ -1171,7 +1161,7 @@ array([[ inf,  nan,   2.,   3.],
 
     #ipython_directive.DEBUG = True  # dbg
     #options = dict(suppress=True)  # dbg
-    options = dict()
+    options = {}
     for example in examples:
         content = example.split('\n')
         IPythonDirective('debug', arguments=None, options=options,

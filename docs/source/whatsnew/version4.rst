@@ -2,12 +2,27 @@
  4.x Series
 ============
 
+IPython 4.2
+===========
+
+IPython 4.2 (April, 2016) includes various bugfixes and improvements over 4.1.
+
+- Fix ``ipython -i`` on errors, which was broken in 4.1.
+- The delay meant to highlight deprecated commands that have moved to jupyter has been removed.
+- Improve compatibility with future versions of traitlets and matplotlib.
+- Use stdlib :func:`python:shutil.get_terminal_size` to measure terminal width when displaying tracebacks
+  (provided by ``backports.shutil_get_terminal_size`` on Python 2).
+
+You can see the rest `on GitHub <https://github.com/ipython/ipython/issues?q=milestone%3A4.2>`__.
+
 
 IPython 4.1
 ===========
 
-Release February, 2016. IPython 4.1 contain mostly bug fixes. It though contain
-a few improvement.
+IPython 4.1.2 (March, 2016) fixes installation issues with some versions of setuptools.
+
+Released February, 2016. IPython 4.1 contains mostly bug fixes,
+though there are a few improvements.
 
 
 - IPython debugger (IPdb) now supports the number of context lines for the
@@ -32,8 +47,8 @@ Released August, 2015
 
 IPython 4.0 is the first major release after the Big Split.
 IPython no longer contains the notebook, qtconsole, etc. which have moved to
-`jupyter <https://jupyter.readthedocs.org>`_.
-IPython subprojects, such as `IPython.parallel <https://ipyparallel.readthedocs.org>`_ and `widgets <https://ipywidgets.readthedocs.org>`_ have moved to their own repos as well.
+`jupyter <https://jupyter.readthedocs.io>`_.
+IPython subprojects, such as `IPython.parallel <https://ipyparallel.readthedocs.io>`_ and `widgets <https://ipywidgets.readthedocs.io>`_ have moved to their own repos as well.
 
 The following subpackages are deprecated:
 

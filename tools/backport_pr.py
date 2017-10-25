@@ -26,7 +26,6 @@ of that repo.
 
 """
 
-from __future__ import print_function
 
 import os
 import re
@@ -161,6 +160,10 @@ def should_backport(labels=None, milestone=None, project='ipython/ipython'):
 
 if __name__ == '__main__':
     project = 'ipython/ipython'
+
+    print("DEPRECATE: backport_pr.py is deprecated and is is now recommended"
+          "to install `ghpro` from PyPI.", file=sys.stderr)
+
     args = list(sys.argv)
     if len(args) >= 2:
         if '/' in args[1]:

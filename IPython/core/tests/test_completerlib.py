@@ -2,7 +2,6 @@
 """Tests for completerlib.
 
 """
-from __future__ import absolute_import
 
 #-----------------------------------------------------------------------------
 # Imports
@@ -42,7 +41,7 @@ class Test_magic_run_completer(unittest.TestCase):
         for d in self.dirs:
             os.mkdir(join(self.BASETESTDIR, d))
 
-        self.oldpath = py3compat.getcwd()
+        self.oldpath = os.getcwd()
         os.chdir(self.BASETESTDIR)
 
     def tearDown(self):
@@ -95,7 +94,7 @@ class Test_magic_run_completer_nonascii(unittest.TestCase):
         for fil in [u"aaø.py", u"a.py", u"b.py"]:
             with open(join(self.BASETESTDIR, fil), "w") as sfile:
                 sfile.write("pass\n")
-        self.oldpath = py3compat.getcwd()
+        self.oldpath = os.getcwd()
         os.chdir(self.BASETESTDIR)
 
     def tearDown(self):
@@ -145,3 +144,19 @@ def test_import_invalid_module():
         nt.assert_equal(intersection, set())
 
         assert valid_module_names.issubset(s), valid_module_names.intersection(s)
+
+
+def test_bad_module_all():
+    """Test module with invalid __all__
+
+    https://github.com/ipython/ipython/issues/9678
+    """
+    testsdir = os.path.dirname(__file__)
+    sys.path.insert(0, testsdir)
+    try:
+        results = module_completion('from bad_all import ')
+        nt.assert_in('puppies', results)
+        for r in results:
+            nt.assert_is_instance(r, str)
+    finally:
+        sys.path.remove(testsdir)

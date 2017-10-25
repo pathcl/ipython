@@ -36,6 +36,7 @@ import os
 import tempfile
 import unittest
 import warnings
+from importlib import import_module
 
 from decorator import decorator
 
@@ -48,7 +49,7 @@ from .ipunittest import ipdoctest, ipdocstring
 from IPython.external.decorators import *
 
 # For onlyif_cmd_exists decorator
-from IPython.utils.py3compat import string_types, which, PY2, PY3
+from IPython.utils.py3compat import which
 
 #-----------------------------------------------------------------------------
 # Classes and functions
@@ -67,7 +68,7 @@ def as_unittest(func):
 
 # Utility functions
 
-def apply_wrapper(wrapper,func):
+def apply_wrapper(wrapper, func):
     """Apply a wrapper to a function for decoration.
 
     This mixes Michele Simionato's decorator tool with nose's make_decorator,
@@ -76,14 +77,14 @@ def apply_wrapper(wrapper,func):
     This will ensure that wrapped functions can still be well introspected via
     IPython, for example.
     """
-    warnings.warn("The function `apply_wrapper` is deprecated and might be removed in IPython 5.0", DeprecationWarning)
-
+    warnings.warn("The function `apply_wrapper` is deprecated since IPython 4.0",
+            DeprecationWarning, stacklevel=2)
     import nose.tools
 
     return decorator(wrapper,nose.tools.make_decorator(func)(wrapper))
 
 
-def make_label_dec(label,ds=None):
+def make_label_dec(label, ds=None):
     """Factory function to create a decorator that applies one or more labels.
 
     Parameters
@@ -128,8 +129,9 @@ def make_label_dec(label,ds=None):
     True
     """
 
-    warnings.warn("The function `make_label_dec` is deprecated and might be removed in IPython 5.0", DeprecationWarning)
-    if isinstance(label, string_types):
+    warnings.warn("The function `make_label_dec` is deprecated since IPython 4.0",
+            DeprecationWarning, stacklevel=2)
+    if isinstance(label, str):
         labels = [label]
     else:
         labels = label
@@ -268,7 +270,7 @@ def module_not_available(module):
     available, but delay the 'import numpy' to test execution time.
     """
     try:
-        mod = __import__(module)
+        mod = import_module(module)
         mod_not_avail = False
     except ImportError:
         mod_not_avail = True
@@ -284,7 +286,8 @@ def decorated_dummy(dec, name):
     import IPython.testing.decorators as dec
     setup = dec.decorated_dummy(dec.skip_if_no_x11, __name__)
     """
-    warnings.warn("The function `make_label_dec` is deprecated and might be removed in IPython 5.0", DeprecationWarning)
+    warnings.warn("The function `decorated_dummy` is deprecated since IPython 4.0",
+        DeprecationWarning, stacklevel=2)
     dummy = lambda: None
     dummy.__name__ = name
     return dec(dummy)
@@ -317,7 +320,8 @@ skip_if_no_x11 = skipif(_x11_skip_cond, _x11_skip_msg)
 
 # not a decorator itself, returns a dummy function to be used as setup
 def skip_file_no_x11(name):
-    warnings.warn("The function `skip_file_no_x11` is deprecated and might be removed in IPython 5.0", DeprecationWarning)
+    warnings.warn("The function `skip_file_no_x11` is deprecated since IPython 4.0",
+            DeprecationWarning, stacklevel=2)
     return decorated_dummy(skip_if_no_x11, name) if _x11_skip_cond else None
 
 # Other skip decorators
@@ -332,12 +336,6 @@ skipif_not_matplotlib = skip_without('matplotlib')
 skipif_not_sympy = skip_without('sympy')
 
 skip_known_failure = knownfailureif(True,'This test is known to fail')
-
-known_failure_py3 = knownfailureif(sys.version_info[0] >= 3, 
-                                    'This test is known to fail on Python 3.')
-
-py2_only = skipif(PY3, "This test only runs on Python 2.")
-py3_only = skipif(PY2, "This test only runs on Python 3.")
 
 # A null 'decorator', useful to make more readable code that needs to pick
 # between different decorators based on OS or other conditions
@@ -371,7 +369,8 @@ def onlyif_any_cmd_exists(*commands):
     """
     Decorator to skip test unless at least one of `commands` is found.
     """
-    warnings.warn("The function `onlyif_any_cmd_exists` is deprecated and might be removed in IPython 5.0", DeprecationWarning)
+    warnings.warn("The function `onlyif_any_cmd_exists` is deprecated since IPython 4.0",
+            DeprecationWarning, stacklevel=2)
     for cmd in commands:
         if which(cmd):
             return null_deco

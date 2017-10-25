@@ -13,7 +13,6 @@ rid of that dependency, we could move it there.
 # Copyright (c) IPython Development Team.
 # Distributed under the terms of the Modified BSD License.
 
-from __future__ import print_function
 
 import os
 import re
@@ -26,7 +25,6 @@ from IPython import get_ipython
 from IPython.core.display import display
 from IPython.core.error import TryNext
 from IPython.utils.data import chop
-from IPython.utils import io
 from IPython.utils.process import system
 from IPython.utils.terminal import get_terminal_size
 from IPython.utils import py3compat
@@ -39,7 +37,7 @@ def display_page(strng, start=0, screen_lines=25):
     else:
         if start:
             strng = u'\n'.join(strng.splitlines()[start:])
-        data = {'text/plain': strng}
+        data = { 'text/plain': strng }
     display(data, raw=True)
 
 
@@ -57,23 +55,25 @@ def page_dumb(strng, start=0, screen_lines=25):
     """Very dumb 'pager' in Python, for when nothing else works.
 
     Only moves forward, same interface as page(), except for pager_cmd and
-    mode."""
-
+    mode.
+    """
+    if isinstance(strng, dict):
+        strng = strng.get('text/plain', '')
     out_ln  = strng.splitlines()[start:]
     screens = chop(out_ln,screen_lines-1)
     if len(screens) == 1:
-        print(os.linesep.join(screens[0]), file=io.stdout)
+        print(os.linesep.join(screens[0]))
     else:
         last_escape = ""
         for scr in screens[0:-1]:
             hunk = os.linesep.join(scr)
-            print(last_escape + hunk, file=io.stdout)
+            print(last_escape + hunk)
             if not page_more():
                 return
             esc_list = esc_re.findall(hunk)
             if len(esc_list) > 0:
                 last_escape = esc_list[-1]
-        print(last_escape + os.linesep.join(screens[-1]), file=io.stdout)
+        print(last_escape + os.linesep.join(screens[-1]))
 
 def _detect_screen_size(screen_lines_def):
     """Attempt to work out the number of lines on the screen.
@@ -106,18 +106,6 @@ def _detect_screen_size(screen_lines_def):
         # can fail on Linux 2.6, pager_page will catch the TypeError
         raise TypeError('termios error: {0}'.format(err))
 
-    # Curses modifies the stdout buffer size by default, which messes
-    # up Python's normal stdout buffering.  This would manifest itself
-    # to IPython users as delayed printing on stdout after having used
-    # the pager.
-    #
-    # We can prevent this by manually setting the NCURSES_NO_SETBUF
-    # environment variable.  For more details, see:
-    # http://bugs.python.org/issue10144
-    NCURSES_NO_SETBUF = os.environ.get('NCURSES_NO_SETBUF', None)
-    os.environ['NCURSES_NO_SETBUF'] = ''
-
-    # Proceed with curses initialization
     try:
         scr = curses.initscr()
     except AttributeError:
@@ -126,12 +114,6 @@ def _detect_screen_size(screen_lines_def):
     
     screen_lines_real,screen_cols = scr.getmaxyx()
     curses.endwin()
-
-    # Restore environment
-    if NCURSES_NO_SETBUF is None:
-        del os.environ['NCURSES_NO_SETBUF']
-    else:
-        os.environ['NCURSES_NO_SETBUF'] = NCURSES_NO_SETBUF
 
     # Restore terminal state in case endwin() didn't.
     termios.tcsetattr(sys.stdout,termios.TCSANOW,term_flags)
@@ -191,13 +173,13 @@ def pager_page(strng, start=0, screen_lines=0, pager_cmd=None):
         try:
             screen_lines += _detect_screen_size(screen_lines_def)
         except (TypeError, UnsupportedOperation):
-            print(str_toprint, file=io.stdout)
+            print(str_toprint)
             return
 
     #print 'numlines',numlines,'screenlines',screen_lines  # dbg
     if numlines <= screen_lines :
         #print '*** normal print'  # dbg
-        print(str_toprint, file=io.stdout)
+        print(str_toprint)
     else:
         # Try to open pager and default to internal one if that fails.
         # All failure modes are tagged as 'retval=1', to match the return
@@ -231,8 +213,7 @@ def pager_page(strng, start=0, screen_lines=0, pager_cmd=None):
                 pager = os.popen(pager_cmd, 'w')
                 try:
                     pager_encoding = pager.encoding or sys.stdout.encoding
-                    pager.write(py3compat.cast_bytes_py2(
-                        strng, encoding=pager_encoding))
+                    pager.write(strng)
                 finally:
                     retval = pager.close()
             except IOError as msg:  # broken pipe when user quits
@@ -299,7 +280,7 @@ def get_pager_cmd(pager_cmd=None):
     Makes some attempts at finding an OS-correct one.
     """
     if os.name == 'posix':
-        default_pager_cmd = 'less -r'  # -r for color control sequences
+        default_pager_cmd = 'less -R'  # -R for color control sequences
     elif os.name in ['nt','dos']:
         default_pager_cmd = 'type'
 
@@ -309,8 +290,8 @@ def get_pager_cmd(pager_cmd=None):
         except:
             pager_cmd = default_pager_cmd
     
-    if pager_cmd == 'less' and '-r' not in os.environ.get('LESS', ''):
-        pager_cmd += ' -r'
+    if pager_cmd == 'less' and '-r' not in os.environ.get('LESS', '').lower():
+        pager_cmd += ' -R'
     
     return pager_cmd
 
@@ -339,13 +320,13 @@ if os.name == 'nt' and os.environ.get('TERM','dumb') != 'emacs':
 
         @return:    True if need print more lines, False if quit
         """
-        io.stdout.write('---Return to continue, q to quit--- ')
+        sys.stdout.write('---Return to continue, q to quit--- ')
         ans = msvcrt.getwch()
         if ans in ("q", "Q"):
             result = False
         else:
             result = True
-        io.stdout.write("\b"*37 + " "*37 + "\b"*37)
+        sys.stdout.write("\b"*37 + " "*37 + "\b"*37)
         return result
 else:
     def page_more():

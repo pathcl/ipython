@@ -1,7 +1,5 @@
 """Implementation of code management magic functions.
 """
-from __future__ import print_function
-from __future__ import absolute_import
 #-----------------------------------------------------------------------------
 #  Copyright (c) 2012 The IPython Development Team.
 #
@@ -30,9 +28,8 @@ from IPython.core.magic import Magics, magics_class, line_magic
 from IPython.core.oinspect import find_file, find_source_lines
 from IPython.testing.skipdoctest import skip_doctest
 from IPython.utils import py3compat
-from IPython.utils.py3compat import string_types
 from IPython.utils.contexts import preserve_keys
-from IPython.utils.path import get_py_filename, unquote_filename
+from IPython.utils.path import get_py_filename
 from warnings import warn
 from logging import error
 from IPython.utils.text import get_text_list
@@ -83,7 +80,6 @@ def extract_code_ranges(ranges_str):
         yield (start, end)
 
 
-@skip_doctest
 def extract_symbols(code, symbols):
     """
     Return a tuple  (blocks, not_found)
@@ -93,14 +89,12 @@ def extract_symbols(code, symbols):
 
     For example::
 
-        >>> code = '''a = 10
+        In [1]: code = '''a = 10
+           ...: def b(): return 42
+           ...: class A: pass'''
 
-        def b(): return 42
-
-        class A: pass'''
-
-        >>> extract_symbols(code, 'A,b,z')
-        (["class A: pass", "def b(): return 42"], ['z'])
+        In [2]: extract_symbols(code, 'A,b,z')
+        Out[2]: (['class A: pass\\n', 'def b(): return 42\\n'], ['z'])
     """
     symbols = symbols.split(',')
 
@@ -137,6 +131,36 @@ def extract_symbols(code, symbols):
             not_found.append(symbol)
 
     return blocks, not_found
+
+def strip_initial_indent(lines):
+    """For %load, strip indent from lines until finding an unindented line.
+
+    https://github.com/ipython/ipython/issues/9775
+    """
+    indent_re = re.compile(r'\s+')
+
+    it = iter(lines)
+    first_line = next(it)
+    indent_match = indent_re.match(first_line)
+
+    if indent_match:
+        # First line was indented
+        indent = indent_match.group()
+        yield first_line[len(indent):]
+
+        for line in it:
+            if line.startswith(indent):
+                yield line[len(indent):]
+            else:
+                # Less indented than the first line - stop dedenting
+                yield line
+                break
+    else:
+        yield first_line
+
+    # Pass the remaining lines through without dedenting
+    for line in it:
+        yield line
 
 
 class InteractivelyDefined(Exception):
@@ -189,7 +213,7 @@ class CodeMagics(Magics):
         append = 'a' in opts
         mode = 'a' if append else 'w'
         ext = u'.ipy' if raw else u'.py'
-        fname, codefrom = unquote_filename(args[0]), " ".join(args[1:])
+        fname, codefrom = args[0], " ".join(args[1:])
         if not fname.endswith((u'.py',u'.ipy')):
             fname += ext
         file_exists = os.path.isfile(fname)
@@ -341,7 +365,7 @@ class CodeMagics(Magics):
             lines = contents.split('\n')
             slices = extract_code_ranges(ranges)
             contents = [lines[slice(*slc)] for slc in slices]
-            contents = '\n'.join(chain.from_iterable(contents))
+            contents = '\n'.join(strip_initial_indent(chain.from_iterable(contents)))
 
         l = len(contents)
 
@@ -369,7 +393,6 @@ class CodeMagics(Magics):
 
         def make_filename(arg):
             "Make a filename from the given args"
-            arg = unquote_filename(arg)
             try:
                 filename = get_py_filename(arg)
             except IOError:
@@ -416,7 +439,7 @@ class CodeMagics(Magics):
 
                     #print '*** args',args,'type',type(args)  # dbg
                     data = eval(args, shell.user_ns)
-                    if not isinstance(data, string_types):
+                    if not isinstance(data, str):
                         raise DataIsObject
 
                 except (NameError,SyntaxError):

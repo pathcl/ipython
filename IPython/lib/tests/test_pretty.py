@@ -4,20 +4,18 @@
 # Copyright (c) IPython Development Team.
 # Distributed under the terms of the Modified BSD License.
 
-from __future__ import print_function
 
 from collections import Counter, defaultdict, deque, OrderedDict
+import types
+import string
+import unittest
 
 import nose.tools as nt
 
 from IPython.lib import pretty
-from IPython.testing.decorators import skip_without, py2_only
-from IPython.utils.py3compat import PY3, unicode_to_str
+from IPython.testing.decorators import skip_without
 
-if PY3:
-    from io import StringIO
-else:
-    from StringIO import StringIO
+from io import StringIO
 
 
 class MyList(object):
@@ -159,7 +157,7 @@ def test_pprint_break_repr():
 def test_bad_repr():
     """Don't catch bad repr errors"""
     with nt.assert_raises(ZeroDivisionError):
-        output = pretty.pretty(BadRepr())
+        pretty.pretty(BadRepr())
 
 class BadException(Exception):
     def __str__(self):
@@ -176,7 +174,7 @@ class ReallyBadRepr(object):
 
 def test_really_bad_repr():
     with nt.assert_raises(BadException):
-        output = pretty.pretty(ReallyBadRepr())
+        pretty.pretty(ReallyBadRepr())
 
 
 class SA(object):
@@ -185,42 +183,46 @@ class SA(object):
 class SB(SA):
     pass
 
-def test_super_repr():
-    output = pretty.pretty(super(SA))
-    nt.assert_in("SA", output)
+class TestsPretty(unittest.TestCase):
 
-    sb = SB()
-    output = pretty.pretty(super(SA, sb))
-    nt.assert_in("SA", output)
+    def test_super_repr(self):
+        # "<super: module_name.SA, None>"
+        output = pretty.pretty(super(SA))
+        self.assertRegex(output, r"<super: \S+.SA, None>")
+
+        # "<super: module_name.SA, <module_name.SB at 0x...>>"
+        sb = SB()
+        output = pretty.pretty(super(SA, sb))
+        self.assertRegex(output, r"<super: \S+.SA,\s+<\S+.SB at 0x\S+>>")
 
 
-def test_long_list():
-    lis = list(range(10000))
-    p = pretty.pretty(lis)
-    last2 = p.rsplit('\n', 2)[-2:]
-    nt.assert_equal(last2, [' 999,', ' ...]'])
+    def test_long_list(self):
+        lis = list(range(10000))
+        p = pretty.pretty(lis)
+        last2 = p.rsplit('\n', 2)[-2:]
+        self.assertEqual(last2, [' 999,', ' ...]'])
 
-def test_long_set():
-    s = set(range(10000))
-    p = pretty.pretty(s)
-    last2 = p.rsplit('\n', 2)[-2:]
-    nt.assert_equal(last2, [' 999,', ' ...}'])
+    def test_long_set(self):
+        s = set(range(10000))
+        p = pretty.pretty(s)
+        last2 = p.rsplit('\n', 2)[-2:]
+        self.assertEqual(last2, [' 999,', ' ...}'])
 
-def test_long_tuple():
-    tup = tuple(range(10000))
-    p = pretty.pretty(tup)
-    last2 = p.rsplit('\n', 2)[-2:]
-    nt.assert_equal(last2, [' 999,', ' ...)'])
+    def test_long_tuple(self):
+        tup = tuple(range(10000))
+        p = pretty.pretty(tup)
+        last2 = p.rsplit('\n', 2)[-2:]
+        self.assertEqual(last2, [' 999,', ' ...)'])
 
-def test_long_dict():
-    d = { n:n for n in range(10000) }
-    p = pretty.pretty(d)
-    last2 = p.rsplit('\n', 2)[-2:]
-    nt.assert_equal(last2, [' 999: 999,', ' ...}'])
+    def test_long_dict(self):
+        d = { n:n for n in range(10000) }
+        p = pretty.pretty(d)
+        last2 = p.rsplit('\n', 2)[-2:]
+        self.assertEqual(last2, [' 999: 999,', ' ...}'])
 
-def test_unbound_method():
-    output = pretty.pretty(MyObj.somemethod)
-    nt.assert_in('MyObj.somemethod', output)
+    def test_unbound_method(self):
+        output = pretty.pretty(MyObj.somemethod)
+        self.assertIn('MyObj.somemethod', output)
 
 
 class MetaClass(type):
@@ -241,7 +243,7 @@ def test_metaclass_repr():
 
 def test_unicode_repr():
     u = u"üniçodé"
-    ustr = unicode_to_str(u)
+    ustr = u
     
     class C(object):
         def __repr__(self):
@@ -270,83 +272,6 @@ def test_basic_class():
 
     nt.assert_equal(output, '%s.MyObj' % __name__)
     nt.assert_true(type_pprint_wrapper.called)
-
-
-# This is only run on Python 2 because in Python 3 the language prevents you
-# from setting a non-unicode value for __qualname__ on a metaclass, and it
-# doesn't respect the descriptor protocol if you subclass unicode and implement
-# __get__.
-@py2_only
-def test_fallback_to__name__on_type():
-    # Test that we correctly repr types that have non-string values for
-    # __qualname__ by falling back to __name__
-
-    class Type(object):
-        __qualname__ = 5
-
-    # Test repring of the type.
-    stream = StringIO()
-    printer = pretty.RepresentationPrinter(stream)
-
-    printer.pretty(Type)
-    printer.flush()
-    output = stream.getvalue()
-
-    # If __qualname__ is malformed, we should fall back to __name__.
-    expected = '.'.join([__name__, Type.__name__])
-    nt.assert_equal(output, expected)
-
-    # Clear stream buffer.
-    stream.buf = ''
-
-    # Test repring of an instance of the type.
-    instance = Type()
-    printer.pretty(instance)
-    printer.flush()
-    output = stream.getvalue()
-
-    # Should look like:
-    # <IPython.lib.tests.test_pretty.Type at 0x7f7658ae07d0>
-    prefix = '<' + '.'.join([__name__, Type.__name__]) + ' at 0x'
-    nt.assert_true(output.startswith(prefix))
-
-
-@py2_only
-def test_fail_gracefully_on_bogus__qualname__and__name__():
-    # Test that we correctly repr types that have non-string values for both
-    # __qualname__ and __name__
-
-    class Meta(type):
-        __name__ = 5
-
-    class Type(object):
-        __metaclass__ = Meta
-        __qualname__ = 5
-
-    stream = StringIO()
-    printer = pretty.RepresentationPrinter(stream)
-
-    printer.pretty(Type)
-    printer.flush()
-    output = stream.getvalue()
-
-    # If we can't find __name__ or __qualname__ just use a sentinel string.
-    expected = '.'.join([__name__, '<unknown type>'])
-    nt.assert_equal(output, expected)
-
-    # Clear stream buffer.
-    stream.buf = ''
-
-    # Test repring of an instance of the type.
-    instance = Type()
-    printer.pretty(instance)
-    printer.flush()
-    output = stream.getvalue()
-
-    # Should look like:
-    # <IPython.lib.tests.test_pretty.<unknown type> at 0x7f7658ae07d0>
-    prefix = '<' + '.'.join([__name__, '<unknown type>']) + ' at 0x'
-    nt.assert_true(output.startswith(prefix))
 
 
 def test_collections_defaultdict():
@@ -433,6 +358,50 @@ def test_collections_counter():
         (Counter(), 'Counter()'),
         (Counter(a=1), "Counter({'a': 1})"),
         (MyCounter(a=1), "MyCounter({'a': 1})"),
+    ]
+    for obj, expected in cases:
+        nt.assert_equal(pretty.pretty(obj), expected)
+
+def test_mappingproxy():
+    MP = types.MappingProxyType
+    underlying_dict = {}
+    mp_recursive = MP(underlying_dict)
+    underlying_dict[2] = mp_recursive
+    underlying_dict[3] = underlying_dict
+
+    cases = [
+        (MP({}), "mappingproxy({})"),
+        (MP({None: MP({})}), "mappingproxy({None: mappingproxy({})})"),
+        (MP({k: k.upper() for k in string.ascii_lowercase}),
+         "mappingproxy({'a': 'A',\n"
+         "              'b': 'B',\n"
+         "              'c': 'C',\n"
+         "              'd': 'D',\n"
+         "              'e': 'E',\n"
+         "              'f': 'F',\n"
+         "              'g': 'G',\n"
+         "              'h': 'H',\n"
+         "              'i': 'I',\n"
+         "              'j': 'J',\n"
+         "              'k': 'K',\n"
+         "              'l': 'L',\n"
+         "              'm': 'M',\n"
+         "              'n': 'N',\n"
+         "              'o': 'O',\n"
+         "              'p': 'P',\n"
+         "              'q': 'Q',\n"
+         "              'r': 'R',\n"
+         "              's': 'S',\n"
+         "              't': 'T',\n"
+         "              'u': 'U',\n"
+         "              'v': 'V',\n"
+         "              'w': 'W',\n"
+         "              'x': 'X',\n"
+         "              'y': 'Y',\n"
+         "              'z': 'Z'})"),
+        (mp_recursive, "mappingproxy({2: {...}, 3: {2: {...}, 3: {...}}})"),
+        (underlying_dict,
+         "{2: mappingproxy({2: {...}, 3: {...}}), 3: {...}}"),
     ]
     for obj, expected in cases:
         nt.assert_equal(pretty.pretty(obj), expected)

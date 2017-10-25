@@ -77,18 +77,17 @@ Inheritance diagram:
             Portions (c) 2009 by Robert Kern.
 :license: BSD License.
 """
-from __future__ import print_function
 from contextlib import contextmanager
 import sys
 import types
 import re
 import datetime
 from collections import deque
-
-from IPython.utils.py3compat import PY3, cast_unicode, string_types
-from IPython.utils.encoding import get_stream_enc
-
 from io import StringIO
+from warnings import warn
+
+from IPython.utils.decorators import undoc
+from IPython.utils.py3compat import PYPY
 
 
 __all__ = ['pretty', 'pprint', 'PrettyPrinter', 'RepresentationPrinter',
@@ -109,21 +108,34 @@ def _safe_getattr(obj, attr, default=None):
     except Exception:
         return default
 
-if PY3:
-    CUnicodeIO = StringIO
-else:
-    class CUnicodeIO(StringIO):
-        """StringIO that casts str to unicode on Python 2"""
-        def write(self, text):
-            return super(CUnicodeIO, self).write(
-                cast_unicode(text, encoding=get_stream_enc(sys.stdout)))
+@undoc
+class CUnicodeIO(StringIO):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        warn(("CUnicodeIO is deprecated since IPython 6.0. "
+              "Please use io.StringIO instead."),
+             DeprecationWarning, stacklevel=2)
 
+def _sorted_for_pprint(items):
+    """
+    Sort the given items for pretty printing. Since some predictable
+    sorting is better than no sorting at all, we sort on the string
+    representation if normal sorting fails.
+    """
+    items = list(items)
+    try:
+        return sorted(items)
+    except Exception:
+        try:
+            return sorted(items, key=str)
+        except Exception:
+            return items
 
 def pretty(obj, verbose=False, max_width=79, newline='\n', max_seq_length=MAX_SEQ_LENGTH):
     """
     Pretty print the object's representation.
     """
-    stream = CUnicodeIO()
+    stream = StringIO()
     printer = RepresentationPrinter(stream, verbose, max_width, newline, max_seq_length=max_seq_length)
     printer.pretty(obj)
     printer.flush()
@@ -486,11 +498,6 @@ class GroupQueue(object):
         except ValueError:
             pass
 
-try:
-    _baseclass_reprs = (object.__repr__, types.InstanceType.__repr__)
-except AttributeError:  # Python 3
-    _baseclass_reprs = (object.__repr__,)
-
 
 def _default_pprint(obj, p, cycle):
     """
@@ -498,7 +505,7 @@ def _default_pprint(obj, p, cycle):
     it's none of the builtin objects.
     """
     klass = _safe_getattr(obj, '__class__', None) or type(obj)
-    if _safe_getattr(klass, '__repr__', None) not in _baseclass_reprs:
+    if _safe_getattr(klass, '__repr__', None) is not object.__repr__:
         # A user-provided repr. Find newlines and replace them with p.break_()
         _repr_pprint(obj, p, cycle)
         return
@@ -576,13 +583,10 @@ def _set_pprinter_factory(start, end, basetype):
             step = len(start)
             p.begin_group(step, start)
             # Like dictionary keys, we will try to sort the items if there aren't too many
-            items = obj
             if not (p.max_seq_length and len(obj) >= p.max_seq_length):
-                try:
-                    items = sorted(obj)
-                except Exception:
-                    # Sometimes the items don't sort.
-                    pass
+                items = _sorted_for_pprint(obj)
+            else:
+                items = obj
             for idx, x in p._enumerate(items):
                 if idx:
                     p.text(',')
@@ -605,15 +609,12 @@ def _dict_pprinter_factory(start, end, basetype=None):
 
         if cycle:
             return p.text('{...}')
-        p.begin_group(1, start)
+        step = len(start)
+        p.begin_group(step, start)
         keys = obj.keys()
         # if dict isn't large enough to be truncated, sort keys before displaying
         if not (p.max_seq_length and len(obj) >= p.max_seq_length):
-            try:
-                keys = sorted(keys)
-            except Exception:
-                # Sometimes the keys don't sort.
-                pass
+            keys = _sorted_for_pprint(keys)
         for idx, key in p._enumerate(keys):
             if idx:
                 p.text(',')
@@ -621,7 +622,7 @@ def _dict_pprinter_factory(start, end, basetype=None):
             p.pretty(key)
             p.text(': ')
             p.pretty(obj[key])
-        p.end_group(1, end)
+        p.end_group(step, end)
     return inner
 
 
@@ -631,7 +632,11 @@ def _super_pprint(obj, p, cycle):
     p.pretty(obj.__thisclass__)
     p.text(',')
     p.breakable()
-    p.pretty(obj.__self__)
+    if PYPY: # In PyPy, super() objects don't have __self__ attributes
+        dself = obj.__repr__.__self__
+        p.pretty(None if dself is obj else dself)
+    else:
+        p.pretty(obj.__self__)
     p.end_group(8, '>')
 
 
@@ -665,21 +670,23 @@ def _type_pprint(obj, p, cycle):
     # Heap allocated types might not have the module attribute,
     # and others may set it to None.
 
-    # Checks for a __repr__ override in the metaclass
-    if type(obj).__repr__ is not type.__repr__:
+    # Checks for a __repr__ override in the metaclass. Can't compare the
+    # type(obj).__repr__ directly because in PyPy the representation function
+    # inherited from type isn't the same type.__repr__
+    if [m for m in _get_mro(type(obj)) if "__repr__" in vars(m)][:1] != [type]:
         _repr_pprint(obj, p, cycle)
         return
 
     mod = _safe_getattr(obj, '__module__', None)
     try:
         name = obj.__qualname__
-        if not isinstance(name, string_types):
+        if not isinstance(name, str):
             # This can happen if the type implements __qualname__ as a property
             # or other descriptor in Python 2.
             raise Exception("Try __name__")
     except Exception:
         name = obj.__name__
-        if not isinstance(name, string_types):
+        if not isinstance(name, str):
             name = '<unknown type>'
 
     if mod in (None, '__builtin__', 'builtins', 'exceptions'):
@@ -753,14 +760,18 @@ _type_pprinters = {
 }
 
 try:
-    _type_pprinters[types.DictProxyType] = _dict_pprinter_factory('<dictproxy {', '}>')
+    # In PyPy, types.DictProxyType is dict, setting the dictproxy printer
+    # using dict.setdefault avoids overwritting the dict printer
+    _type_pprinters.setdefault(types.DictProxyType,
+                               _dict_pprinter_factory('dict_proxy({', '})'))
     _type_pprinters[types.ClassType] = _type_pprint
     _type_pprinters[types.SliceType] = _repr_pprint
 except AttributeError: # Python 3
+    _type_pprinters[types.MappingProxyType] = \
+        _dict_pprinter_factory('mappingproxy({', '})')
     _type_pprinters[slice] = _repr_pprint
     
 try:
-    _type_pprinters[xrange] = _repr_pprint
     _type_pprinters[long] = _repr_pprint
     _type_pprinters[unicode] = _repr_pprint
 except NameError:

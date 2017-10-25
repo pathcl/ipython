@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """Tests for the inputsplitter module."""
 
-from __future__ import print_function
 
 # Copyright (c) IPython Development Team.
 # Distributed under the terms of the Modified BSD License.
@@ -16,7 +15,7 @@ from IPython.core.inputtransformer import InputTransformer
 from IPython.core.tests.test_inputtransformer import syntax, syntax_ml
 from IPython.testing import tools as tt
 from IPython.utils import py3compat
-from IPython.utils.py3compat import string_types, input
+from IPython.utils.py3compat  import input
 
 #-----------------------------------------------------------------------------
 # Semi-complete examples (also used as tests)
@@ -101,7 +100,7 @@ def test_remove_comments():
 
 def test_get_input_encoding():
     encoding = isp.get_input_encoding()
-    nt.assert_true(isinstance(encoding, string_types))
+    nt.assert_true(isinstance(encoding, str))
     # simple-minded check that at least encoding a simple string works with the
     # encoding we got.
     nt.assert_equal(u'test'.encode(encoding), b'test')
@@ -142,7 +141,7 @@ class InputSplitterTestCase(unittest.TestCase):
         self.isp._store('1')
         self.isp._store('2')
         self.assertEqual(self.isp.source, '1\n2\n')
-        self.assertTrue(len(self.isp._buffer)>0)
+        self.assertEqual(len(self.isp._buffer)>0, True)
         self.assertEqual(self.isp.source_reset(), '1\n2\n')
         self.assertEqual(self.isp._buffer, [])
         self.assertEqual(self.isp.source, '')
@@ -244,39 +243,39 @@ class InputSplitterTestCase(unittest.TestCase):
 
     def test_push(self):
         isp = self.isp
-        self.assertTrue(isp.push('x=1'))
+        self.assertEqual(isp.push('x=1'), True)
 
     def test_push2(self):
         isp = self.isp
-        self.assertFalse(isp.push('if 1:'))
+        self.assertEqual(isp.push('if 1:'), False)
         for line in ['  x=1', '# a comment', '  y=2']:
             print(line)
-            self.assertTrue(isp.push(line))
+            self.assertEqual(isp.push(line), True)
 
     def test_push3(self):
         isp = self.isp
         isp.push('if True:')
         isp.push('  a = 1')
-        self.assertFalse(isp.push('b = [1,'))
+        self.assertEqual(isp.push('b = [1,'), False)
 
     def test_push_accepts_more(self):
         isp = self.isp
         isp.push('x=1')
-        self.assertFalse(isp.push_accepts_more())
+        self.assertEqual(isp.push_accepts_more(), False)
 
     def test_push_accepts_more2(self):
         isp = self.isp
         isp.push('if 1:')
-        self.assertTrue(isp.push_accepts_more())
+        self.assertEqual(isp.push_accepts_more(), True)
         isp.push('  x=1')
-        self.assertTrue(isp.push_accepts_more())
+        self.assertEqual(isp.push_accepts_more(), True)
         isp.push('')
-        self.assertFalse(isp.push_accepts_more())
+        self.assertEqual(isp.push_accepts_more(), False)
 
     def test_push_accepts_more3(self):
         isp = self.isp
         isp.push("x = (2+\n3)")
-        self.assertFalse(isp.push_accepts_more())
+        self.assertEqual(isp.push_accepts_more(), False)
 
     def test_push_accepts_more4(self):
         isp = self.isp
@@ -290,11 +289,11 @@ class InputSplitterTestCase(unittest.TestCase):
         isp.push("if 1:")
         isp.push("    x = (2+")
         isp.push("    3)")
-        self.assertTrue(isp.push_accepts_more())
+        self.assertEqual(isp.push_accepts_more(), True)
         isp.push("    y = 3")
-        self.assertTrue(isp.push_accepts_more())
+        self.assertEqual(isp.push_accepts_more(), True)
         isp.push('')
-        self.assertFalse(isp.push_accepts_more())
+        self.assertEqual(isp.push_accepts_more(), False)
 
     def test_push_accepts_more5(self):
         isp = self.isp
@@ -304,14 +303,14 @@ class InputSplitterTestCase(unittest.TestCase):
         isp.push('    raise')
         # We want to be able to add an else: block at this point, so it should
         # wait for a blank line.
-        self.assertTrue(isp.push_accepts_more())
+        self.assertEqual(isp.push_accepts_more(), True)
 
     def test_continuation(self):
         isp = self.isp
         isp.push("import os, \\")
-        self.assertTrue(isp.push_accepts_more())
+        self.assertEqual(isp.push_accepts_more(), True)
         isp.push("sys")
-        self.assertFalse(isp.push_accepts_more())
+        self.assertEqual(isp.push_accepts_more(), False)
 
     def test_syntax_error(self):
         isp = self.isp
@@ -319,7 +318,7 @@ class InputSplitterTestCase(unittest.TestCase):
         # Python can be sent to the kernel for evaluation with possible ipython
         # special-syntax conversion.
         isp.push('run foo')
-        self.assertFalse(isp.push_accepts_more())
+        self.assertEqual(isp.push_accepts_more(), False)
 
     def test_unicode(self):
         self.isp.push(u"Pérez")
@@ -331,16 +330,16 @@ class InputSplitterTestCase(unittest.TestCase):
         isp = self.isp
         # A blank line after a line continuation should not accept more
         isp.push("1 \\\n\n")
-        self.assertFalse(isp.push_accepts_more())
+        self.assertEqual(isp.push_accepts_more(), False)
         # Whitespace after a \ is a SyntaxError.  The only way to test that
         # here is to test that push doesn't accept more (as with
         # test_syntax_error() above).
         isp.push(r"1 \ ")
-        self.assertFalse(isp.push_accepts_more())
+        self.assertEqual(isp.push_accepts_more(), False)
         # Even if the line is continuable (c.f. the regular Python
         # interpreter)
         isp.push(r"(1 \ ")
-        self.assertFalse(isp.push_accepts_more())
+        self.assertEqual(isp.push_accepts_more(), False)
 
     def test_check_complete(self):
         isp = self.isp
@@ -480,11 +479,11 @@ class IPythonInputTestCase(InputSplitterTestCase):
         
         for raw, expected in [
             ("a=5", "a=5#"),
-            ("%ls foo", "get_ipython().magic(%r)" % u'ls foo#'),
-            ("!ls foo\n%ls bar", "get_ipython().system(%r)\nget_ipython().magic(%r)" % (
-                u'ls foo#', u'ls bar#'
+            ("%ls foo", "get_ipython().run_line_magic(%r, %r)" % (u'ls', u'foo#')),
+            ("!ls foo\n%ls bar", "get_ipython().system(%r)\nget_ipython().run_line_magic(%r, %r)" % (
+                u'ls foo#', u'ls', u'bar#'
             )),
-            ("1\n2\n3\n%ls foo\n4\n5", "1#\n2#\n3#\nget_ipython().magic(%r)\n4#\n5#" % u'ls foo#'),
+            ("1\n2\n3\n%ls foo\n4\n5", "1#\n2#\n3#\nget_ipython().run_line_magic(%r, %r)\n4#\n5#" % (u'ls', u'foo#')),
         ]:
             out = isp.transform_cell(raw)
             self.assertEqual(out.rstrip(), expected.rstrip())
@@ -569,7 +568,7 @@ class CellMagicsCommon(object):
     def test_whole_cell(self):
         src = "%%cellm line\nbody\n"
         out = self.sp.transform_cell(src)
-        ref = u"get_ipython().run_cell_magic({u}'cellm', {u}'line', {u}'body')\n"
+        ref = u"get_ipython().run_cell_magic('cellm', 'line', 'body')\n"
         nt.assert_equal(out, py3compat.u_format(ref))
     
     def test_cellmagic_help(self):
@@ -613,3 +612,30 @@ class LineModeCellMagics(CellMagicsCommon, unittest.TestCase):
         sp.push('\n')
         # In this case, a blank line should end the cell magic
         nt.assert_false(sp.push_accepts_more()) #2
+
+indentation_samples = [
+    ('a = 1', 0),
+    ('for a in b:', 4),
+    ('def f():', 4),
+    ('def f(): #comment', 4),
+    ('a = ":#not a comment"', 0),
+    ('def f():\n    a = 1', 4),
+    ('def f():\n    return 1', 0),
+    ('for a in b:\n'
+     '   if a < 0:'
+     '       continue', 3),
+    ('a = {', 4),
+    ('a = {\n'
+     '     1,', 5),
+    ('b = """123', 0),
+    ('', 0),
+    ('def f():\n    pass', 0),
+    ('class Bar:\n    def f():\n        pass', 4),
+    ('class Bar:\n    def f():\n        raise', 4),
+]
+
+def test_find_next_indent():
+    for code, exp in indentation_samples:
+        res = isp.find_next_indent(code)
+        msg = "{!r} != {!r} (expected)\n Code: {!r}".format(res, exp, code)
+        assert res == exp, msg

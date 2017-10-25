@@ -18,21 +18,27 @@ http://ipython.org
 #-----------------------------------------------------------------------------
 # Imports
 #-----------------------------------------------------------------------------
-from __future__ import absolute_import
 
 import os
 import sys
-import warnings
 
 #-----------------------------------------------------------------------------
 # Setup everything
 #-----------------------------------------------------------------------------
 
 # Don't forget to also update setup.py when this changes!
-v = sys.version_info
-if v[:2] < (2,7) or (v[0] >= 3 and v[:2] < (3,3)):
-    raise ImportError('IPython requires Python version 2.7 or 3.3 or above.')
-del v
+if sys.version_info < (3,3):
+    raise ImportError(
+"""
+IPython 6.0+ does not support Python 2.6, 2.7, 3.0, 3.1, or 3.2.
+When using Python 2.7, please install IPython 5.x LTS Long Term Support version.
+Beginning with IPython 6.0, Python 3.3 and above is required.
+
+See IPython `README.rst` file for more information:
+
+    https://github.com/ipython/ipython/blob/master/README.rst
+
+""")
 
 # Make it easy to import extensions - they are always directly on pythonpath.
 # Therefore, non-IPython modules can be added to extensions directory.
@@ -143,15 +149,3 @@ def start_kernel(argv=None, **kwargs):
     """
     from IPython.kernel.zmq.kernelapp import launch_new_instance
     return launch_new_instance(argv=argv, **kwargs)
-    
-# deprecated shim for IPython.Config
-import traitlets.config
-class Config(traitlets.config.Config):
-    def __init__(self, *args, **kwargs):
-        warnings.warn(
-            "IPython.Config is deprecated and will be removed in IPython 5."
-            " Use traitlets.config.Config.",
-            DeprecationWarning, stacklevel=2,
-        )
-        super(Config, self).__init__(*args, **kwargs)
-

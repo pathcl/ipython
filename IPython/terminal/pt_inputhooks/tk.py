@@ -41,10 +41,7 @@ will fix it for Tk.)
 import time
 
 import _tkinter
-try:
-    import tkinter
-except ImportError:
-    import Tkinter as tkinter  # Python 2
+import tkinter
 
 def inputhook(inputhook_context):
     """

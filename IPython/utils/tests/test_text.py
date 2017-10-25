@@ -1,6 +1,5 @@
 # encoding: utf-8
 """Tests for IPython.utils.text"""
-from __future__ import print_function
 
 #-----------------------------------------------------------------------------
 #  Copyright (C) 2011  The IPython Development Team
@@ -19,7 +18,11 @@ import random
 import sys
 
 import nose.tools as nt
-import path
+try:
+    from pathlib import Path
+except ImportError:
+    # for Python 3.3
+    from pathlib2 import Path
 
 from IPython.utils import text
 
@@ -207,7 +210,7 @@ def test_LSString():
     nt.assert_equal(lss.l, ['abc', 'def'])
     nt.assert_equal(lss.s, 'abc def')
     lss = text.LSString(os.getcwd())
-    nt.assert_is_instance(lss.p[0], path.path)
+    nt.assert_is_instance(lss.p[0], Path)
 
 def test_SList():
     sl = text.SList(['a 11', 'b 1', 'a 2'])

@@ -11,6 +11,14 @@ To change the attributes displayed by tab-completing your object, define a
 ``__dir__(self)`` method for it. For more details, see the documentation of the
 built-in `dir() function <http://docs.python.org/library/functions.html#dir>`_.
 
+You can also customise key completions for your objects, e.g. pressing tab after
+``obj["a``. To do so, define a method ``_ipython_key_completions_()``, which
+returns a list of objects which are possible keys in a subscript expression
+``obj[key]``.
+
+.. versionadded:: 5.0
+   Custom key completions
+
 Rich display
 ============
 
@@ -35,10 +43,12 @@ For example::
 Custom exception tracebacks
 ===========================
 
-Rarely, you might want to display a different traceback with an exception -
-IPython's own parallel computing framework does this to display errors from the
-engines. To do this, define a ``_render_traceback_(self)`` method which returns
-a list of strings, each containing one line of the traceback.
+Rarely, you might want to display a custom traceback when reporting an
+exception. To do this, define the custom traceback using
+`_render_traceback_(self)` method which returns a list of strings, one string
+for each line of the traceback. For example, the `ipyparallel
+<http://ipyparallel.readthedocs.io/>`__ a parallel computing framework for
+IPython, does this to display errors from multiple engines.
 
 Please be conservative in using this feature; by replacing the default traceback
 you may hide important information from the user.

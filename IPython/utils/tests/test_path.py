@@ -4,25 +4,18 @@
 # Copyright (c) IPython Development Team.
 # Distributed under the terms of the Modified BSD License.
 
-import errno
 import os
 import shutil
 import sys
 import tempfile
-import warnings
+import unittest
 from contextlib import contextmanager
+from unittest.mock import patch
+from os.path import join, abspath
+from imp import reload
 
-try:  # Python 3.3+
-    from unittest.mock import patch
-except ImportError:
-    from mock import patch
-
-from os.path import join, abspath, split
-
-from nose import SkipTest
+from nose import SkipTest, with_setup
 import nose.tools as nt
-
-from nose import with_setup
 
 import IPython
 from IPython import paths
@@ -31,31 +24,22 @@ from IPython.testing.decorators import (skip_if_not_win32, skip_win32,
                                         onlyif_unicode_paths,)
 from IPython.testing.tools import make_tempfile, AssertPrints
 from IPython.utils import path
-from IPython.utils import py3compat
 from IPython.utils.tempdir import TemporaryDirectory
 
 # Platform-dependent imports
 try:
-    import winreg as wreg  # Py 3
+    import winreg as wreg  
 except ImportError:
+    #Fake _winreg module on non-windows platforms
+    import types
+    wr_name = "winreg"
+    sys.modules[wr_name] = types.ModuleType(wr_name)
     try:
-        import _winreg as wreg  # Py 2
+        import winreg as wreg
     except ImportError:
-        #Fake _winreg module on none windows platforms
-        import types
-        wr_name = "winreg" if py3compat.PY3 else "_winreg"
-        sys.modules[wr_name] = types.ModuleType(wr_name)
-        try:
-            import winreg as wreg
-        except ImportError:
-            import _winreg as wreg
+        import _winreg as wreg
         #Add entries that needs to be stubbed by the testing code
         (wreg.OpenKey, wreg.QueryValueEx,) = (None, None)
-
-try:
-    reload
-except NameError:   # Python 3
-    from imp import reload
 
 #-----------------------------------------------------------------------------
 # Globals
@@ -265,11 +249,11 @@ def test_get_long_path_name_win32():
 
         # Make a long path. Expands the path of tmpdir prematurely as it may already have a long 
         # path component, so ensure we include the long form of it
-        long_path = os.path.join(path.get_long_path_name(tmpdir), u'this is my long path name')
+        long_path = os.path.join(path.get_long_path_name(tmpdir), 'this is my long path name')
         os.makedirs(long_path)
 
         # Test to see if the short path evaluates correctly.
-        short_path = os.path.join(tmpdir, u'THISIS~1')
+        short_path = os.path.join(tmpdir, 'THISIS~1')
         evaluated_path = path.get_long_path_name(short_path)
         nt.assert_equal(evaluated_path.lower(), long_path.lower())
 
@@ -302,41 +286,23 @@ def test_not_writable_ipdir():
         ipdir = paths.get_ipython_dir()
     env.pop('IPYTHON_DIR', None)
 
-def test_unquote_filename():
-    for win32 in (True, False):
-        nt.assert_equal(path.unquote_filename('foo.py', win32=win32), 'foo.py')
-        nt.assert_equal(path.unquote_filename('foo bar.py', win32=win32), 'foo bar.py')
-    nt.assert_equal(path.unquote_filename('"foo.py"', win32=True), 'foo.py')
-    nt.assert_equal(path.unquote_filename('"foo bar.py"', win32=True), 'foo bar.py')
-    nt.assert_equal(path.unquote_filename("'foo.py'", win32=True), 'foo.py')
-    nt.assert_equal(path.unquote_filename("'foo bar.py'", win32=True), 'foo bar.py')
-    nt.assert_equal(path.unquote_filename('"foo.py"', win32=False), '"foo.py"')
-    nt.assert_equal(path.unquote_filename('"foo bar.py"', win32=False), '"foo bar.py"')
-    nt.assert_equal(path.unquote_filename("'foo.py'", win32=False), "'foo.py'")
-    nt.assert_equal(path.unquote_filename("'foo bar.py'", win32=False), "'foo bar.py'")
-
 @with_environment
 def test_get_py_filename():
     os.chdir(TMP_TEST_DIR)
-    for win32 in (True, False):
-        with make_tempfile('foo.py'):
-            nt.assert_equal(path.get_py_filename('foo.py', force_win32=win32), 'foo.py')
-            nt.assert_equal(path.get_py_filename('foo', force_win32=win32), 'foo.py')
-        with make_tempfile('foo'):
-            nt.assert_equal(path.get_py_filename('foo', force_win32=win32), 'foo')
-            nt.assert_raises(IOError, path.get_py_filename, 'foo.py', force_win32=win32)
-        nt.assert_raises(IOError, path.get_py_filename, 'foo', force_win32=win32)
-        nt.assert_raises(IOError, path.get_py_filename, 'foo.py', force_win32=win32)
-        true_fn = 'foo with spaces.py'
-        with make_tempfile(true_fn):
-            nt.assert_equal(path.get_py_filename('foo with spaces', force_win32=win32), true_fn)
-            nt.assert_equal(path.get_py_filename('foo with spaces.py', force_win32=win32), true_fn)
-            if win32:
-                nt.assert_equal(path.get_py_filename('"foo with spaces.py"', force_win32=True), true_fn)
-                nt.assert_equal(path.get_py_filename("'foo with spaces.py'", force_win32=True), true_fn)
-            else:
-                nt.assert_raises(IOError, path.get_py_filename, '"foo with spaces.py"', force_win32=False)
-                nt.assert_raises(IOError, path.get_py_filename, "'foo with spaces.py'", force_win32=False)
+    with make_tempfile('foo.py'):
+        nt.assert_equal(path.get_py_filename('foo.py'), 'foo.py')
+        nt.assert_equal(path.get_py_filename('foo'), 'foo.py')
+    with make_tempfile('foo'):
+        nt.assert_equal(path.get_py_filename('foo'), 'foo')
+        nt.assert_raises(IOError, path.get_py_filename, 'foo.py')
+    nt.assert_raises(IOError, path.get_py_filename, 'foo')
+    nt.assert_raises(IOError, path.get_py_filename, 'foo.py')
+    true_fn = 'foo with spaces.py'
+    with make_tempfile(true_fn):
+        nt.assert_equal(path.get_py_filename('foo with spaces'), true_fn)
+        nt.assert_equal(path.get_py_filename('foo with spaces.py'), true_fn)
+        nt.assert_raises(IOError, path.get_py_filename, '"foo with spaces.py"')
+        nt.assert_raises(IOError, path.get_py_filename, "'foo with spaces.py'")
 
 @onlyif_unicode_paths
 def test_unicode_in_filename():
@@ -347,12 +313,12 @@ def test_unicode_in_filename():
     """
     try:
         # these calls should not throw unicode encode exceptions
-        path.get_py_filename(u'fooéè.py',  force_win32=False)
+        path.get_py_filename('fooéè.py', force_win32=False)
     except IOError as ex:
         str(ex)
 
 
-class TestShellGlob(object):
+class TestShellGlob(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
@@ -374,7 +340,7 @@ class TestShellGlob(object):
     @classmethod
     @contextmanager
     def in_tempdir(cls):
-        save = py3compat.getcwd()
+        save = os.getcwd()
         try:
             os.chdir(cls.tempdir.name)
             yield
@@ -384,8 +350,8 @@ class TestShellGlob(object):
     def check_match(self, patterns, matches):
         with self.in_tempdir():
             # glob returns unordered list. that's why sorted is required.
-            nt.assert_equals(sorted(path.shellglob(patterns)),
-                             sorted(matches))
+            nt.assert_equal(sorted(path.shellglob(patterns)),
+                            sorted(matches))
 
     def common_cases(self):
         return [
@@ -421,20 +387,21 @@ class TestShellGlob(object):
 
 
 def test_unescape_glob():
-    nt.assert_equals(path.unescape_glob(r'\*\[\!\]\?'), '*[!]?')
-    nt.assert_equals(path.unescape_glob(r'\\*'), r'\*')
-    nt.assert_equals(path.unescape_glob(r'\\\*'), r'\*')
-    nt.assert_equals(path.unescape_glob(r'\\a'), r'\a')
-    nt.assert_equals(path.unescape_glob(r'\a'), r'\a')
+    nt.assert_equal(path.unescape_glob(r'\*\[\!\]\?'), '*[!]?')
+    nt.assert_equal(path.unescape_glob(r'\\*'), r'\*')
+    nt.assert_equal(path.unescape_glob(r'\\\*'), r'\*')
+    nt.assert_equal(path.unescape_glob(r'\\a'), r'\a')
+    nt.assert_equal(path.unescape_glob(r'\a'), r'\a')
 
 
+@onlyif_unicode_paths
 def test_ensure_dir_exists():
     with TemporaryDirectory() as td:
-        d = os.path.join(td, u'∂ir')
+        d = os.path.join(td, '∂ir')
         path.ensure_dir_exists(d) # create it
         assert os.path.isdir(d)
         path.ensure_dir_exists(d) # no-op
-        f = os.path.join(td, u'ƒile')
+        f = os.path.join(td, 'ƒile')
         open(f, 'w').close() # touch
         with nt.assert_raises(IOError):
             path.ensure_dir_exists(f)
@@ -453,17 +420,17 @@ class TestLinkOrCopy(object):
         return os.path.join(self.tempdir.name, *args)
 
     def assert_inode_not_equal(self, a, b):
-        nt.assert_not_equals(os.stat(a).st_ino, os.stat(b).st_ino,
-                             "%r and %r do reference the same indoes" %(a, b))
+        nt.assert_not_equal(os.stat(a).st_ino, os.stat(b).st_ino,
+                            "%r and %r do reference the same indoes" %(a, b))
 
     def assert_inode_equal(self, a, b):
-        nt.assert_equals(os.stat(a).st_ino, os.stat(b).st_ino,
-                         "%r and %r do not reference the same indoes" %(a, b))
+        nt.assert_equal(os.stat(a).st_ino, os.stat(b).st_ino,
+                        "%r and %r do not reference the same indoes" %(a, b))
 
     def assert_content_equal(self, a, b):
         with open(a) as a_f:
             with open(b) as b_f:
-                nt.assert_equals(a_f.read(), b_f.read())
+                nt.assert_equal(a_f.read(), b_f.read())
 
     @skip_win32
     def test_link_successful(self):

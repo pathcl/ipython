@@ -1,8 +1,8 @@
 """Implementation of basic magic functions."""
 
-from __future__ import print_function
-from __future__ import absolute_import
 
+import argparse
+import textwrap
 import io
 import sys
 from pprint import pformat
@@ -13,14 +13,13 @@ from IPython.core.magic import Magics, magics_class, line_magic, magic_escapes
 from IPython.utils.text import format_screen, dedent, indent
 from IPython.testing.skipdoctest import skip_doctest
 from IPython.utils.ipstruct import Struct
-from IPython.utils.path import unquote_filename
-from IPython.utils.py3compat import unicode_type
 from warnings import warn
 from logging import error
 
 
 class MagicsDisplay(object):
-    def __init__(self, magics_manager):
+    def __init__(self, magics_manager, ignore=None):
+        self.ignore = ignore if ignore else []
         self.magics_manager = magics_manager
     
     def _lsmagic(self):
@@ -30,10 +29,10 @@ class MagicsDisplay(object):
         mman = self.magics_manager
         magics = mman.lsmagic()
         out = ['Available line magics:',
-               mesc + ('  '+mesc).join(sorted(magics['line'])),
+               mesc + ('  '+mesc).join(sorted([m for m,v in magics['line'].items() if (v not in self.ignore)])),
                '',
                'Available cell magics:',
-               cesc + ('  '+cesc).join(sorted(magics['cell'])),
+               cesc + ('  '+cesc).join(sorted([m for m,v in magics['cell'].items() if (v not in self.ignore)])),
                '',
                mman.auto_status()]
         return '\n'.join(out)
@@ -92,6 +91,10 @@ class BasicMagics(Magics):
         'target',
         help="""Name of the existing line or cell magic."""
     )
+    @magic_arguments.argument(
+        '-p', '--params', default=None,
+        help="""Parameters passed to the magic function."""
+    )
     @line_magic
     def alias_magic(self, line=''):
         """Create an alias for an existing line or cell magic.
@@ -119,7 +122,11 @@ class BasicMagics(Magics):
 
           In [6]: %whereami
           Out[6]: u'/home/testuser'
+          
+          In [7]: %alias_magic h history -p "-l 30" --line
+          Created `%h` as an alias for `%history -l 30`.
         """
+
         args = magic_arguments.parse_argstring(self.alias_magic, line)
         shell = self.shell
         mman = self.shell.magics_manager
@@ -127,6 +134,12 @@ class BasicMagics(Magics):
 
         target = args.target.lstrip(escs)
         name = args.name.lstrip(escs)
+
+        params = args.params
+        if (params and
+                ((params.startswith('"') and params.endswith('"'))
+                or (params.startswith("'") and params.endswith("'")))):
+            params = params[1:-1]
 
         # Find the requested magics.
         m_line = shell.find_magic(target, 'line')
@@ -148,22 +161,24 @@ class BasicMagics(Magics):
             args.line = bool(m_line)
             args.cell = bool(m_cell)
 
+        params_str = "" if params is None else " " + params
+
         if args.line:
-            mman.register_alias(name, target, 'line')
-            print('Created `%s%s` as an alias for `%s%s`.' % (
+            mman.register_alias(name, target, 'line', params)
+            print('Created `%s%s` as an alias for `%s%s%s`.' % (
                 magic_escapes['line'], name,
-                magic_escapes['line'], target))
+                magic_escapes['line'], target, params_str))
 
         if args.cell:
-            mman.register_alias(name, target, 'cell')
-            print('Created `%s%s` as an alias for `%s%s`.' % (
+            mman.register_alias(name, target, 'cell', params)
+            print('Created `%s%s` as an alias for `%s%s%s`.' % (
                 magic_escapes['cell'], name,
-                magic_escapes['cell'], target))
+                magic_escapes['cell'], target, params_str))
 
     @line_magic
     def lsmagic(self, parameter_s=''):
         """List currently available magic functions."""
-        return MagicsDisplay(self.shell.magics_manager)
+        return MagicsDisplay(self.shell.magics_manager, ignore=[self.pip])
 
     def _magic_docs(self, brief=False, rest=False):
         """Return docstrings from magic functions."""
@@ -288,19 +303,18 @@ Currently the magic system has the following functions:""",
 
     @line_magic
     def profile(self, parameter_s=''):
-        """Print your currently active IPython profile.
+        """DEPRECATED since IPython 2.0.
+
+        Raise `UsageError`. To profile code use the :magic:`prun` magic.
+        
 
         See Also
         --------
-        prun : run code using the Python profiler
-               (:meth:`~IPython.core.magics.execution.ExecutionMagics.prun`)
+        prun : run code using the Python profiler (:magic:`prun`)
         """
-        warn("%profile is now deprecated. Please use get_ipython().profile instead.")
-        from IPython.core.application import BaseIPythonApplication
-        if BaseIPythonApplication.initialized():
-            print(BaseIPythonApplication.instance().profile)
-        else:
-            error("profile is an application-level value, but you don't appear to be in an IPython application")
+        raise UsageError("The `%profile` magic has been deprecated since IPython 2.0. "
+            "and removed in IPython 6.0. Please use the value of `get_ipython().profile` instead "
+            "to see current profile in use. Perhaps you meant to use `%prun` to profile code?")
 
     @line_magic
     def pprint(self, parameter_s=''):
@@ -326,7 +340,7 @@ Currently the magic system has the following functions:""",
         """
         def color_switch_err(name):
             warn('Error changing %s color schemes.\n%s' %
-                 (name, sys.exc_info()[1]))
+                 (name, sys.exc_info()[1]), stacklevel=2)
 
 
         new_scheme = parameter_s.strip()
@@ -336,34 +350,13 @@ Currently the magic system has the following functions:""",
         # local shortcut
         shell = self.shell
 
-
-
-        if not shell.colors_force:
-            if sys.platform in {'win32', 'cli'}:
-                import IPython.utils.rlineimpl as readline
-                if not readline.have_readline:
-                    msg = """\
-Proper color support under MS Windows requires the pyreadline library.
-You can find it at:
-http://ipython.org/pyreadline.html
-
-Defaulting color scheme to 'NoColor'"""
-                    new_scheme = 'NoColor'
-                    warn(msg)
-
-            elif not shell.has_readline:
-                # Coloured prompts get messed up without readline
-                # Will remove this check after switching to prompt_toolkit
-                new_scheme = 'NoColor'
-
-        # Set prompt colors
+        # Set shell colour scheme
         try:
-            shell.prompt_manager.color_scheme = new_scheme
+            shell.colors = new_scheme
+            shell.refresh_style()
         except:
-            color_switch_err('prompt')
-        else:
-            shell.colors = \
-                   shell.prompt_manager.color_scheme_table.active_scheme_name
+            color_switch_err('shell')
+
         # Set exception colors
         try:
             shell.InteractiveTB.set_colors(scheme = new_scheme)
@@ -401,7 +394,24 @@ Defaulting color scheme to 'NoColor'"""
             xmode_switch_err('user')
 
     @line_magic
-    def quickref(self,arg):
+    def pip(self, args=''):
+        """
+        Intercept usage of ``pip`` in IPython and direct user to run command outside of IPython.
+        """
+        print(textwrap.dedent('''
+        The following command must be run outside of the IPython shell:
+
+            $ pip {args}
+
+        The Python package manager (pip) can only be used from outside of IPython.
+        Please reissue the `pip` command in a separate terminal or command prompt.
+
+        See the Python documentation for more informations on how to install packages:
+
+            https://docs.python.org/3/installing/'''.format(args=args)))
+
+    @line_magic
+    def quickref(self, arg):
         """ Show a quick reference sheet """
         from IPython.core.usage import quick_reference
         qr = quick_reference + self._magic_docs(brief=True)
@@ -435,7 +445,6 @@ Defaulting color scheme to 'NoColor'"""
 
         # Shorthands
         shell = self.shell
-        pm = shell.prompt_manager
         meta = shell.meta
         disp_formatter = self.shell.display_formatter
         ptformatter = disp_formatter.formatters['text/plain']
@@ -450,23 +459,17 @@ Defaulting color scheme to 'NoColor'"""
         save_dstore('xmode',shell.InteractiveTB.mode)
         save_dstore('rc_separate_out',shell.separate_out)
         save_dstore('rc_separate_out2',shell.separate_out2)
-        save_dstore('rc_prompts_pad_left',pm.justify)
         save_dstore('rc_separate_in',shell.separate_in)
         save_dstore('rc_active_types',disp_formatter.active_types)
-        save_dstore('prompt_templates',(pm.in_template, pm.in2_template, pm.out_template))
 
         if not mode:
             # turn on
-            pm.in_template = '>>> '
-            pm.in2_template = '... '
-            pm.out_template = ''
 
             # Prompt separators like plain python
             shell.separate_in = ''
             shell.separate_out = ''
             shell.separate_out2 = ''
 
-            pm.justify = False
 
             ptformatter.pprint = False
             disp_formatter.active_types = ['text/plain']
@@ -474,22 +477,22 @@ Defaulting color scheme to 'NoColor'"""
             shell.magic('xmode Plain')
         else:
             # turn off
-            pm.in_template, pm.in2_template, pm.out_template = dstore.prompt_templates
-
             shell.separate_in = dstore.rc_separate_in
 
             shell.separate_out = dstore.rc_separate_out
             shell.separate_out2 = dstore.rc_separate_out2
-
-            pm.justify = dstore.rc_prompts_pad_left
 
             ptformatter.pprint = dstore.rc_pprint
             disp_formatter.active_types = dstore.rc_active_types
 
             shell.magic('xmode ' + dstore.xmode)
 
+        # mode here is the state before we switch; switch_doctest_mode takes
+        # the mode we're switching to.
+        shell.switch_doctest_mode(not mode)
+
         # Store new mode and inform
-        dstore.mode = bool(1-int(mode))
+        dstore.mode = bool(not mode)
         mode_label = ['OFF','ON'][dstore.mode]
         print('Doctest mode is:', mode_label)
 
@@ -577,14 +580,10 @@ Defaulting color scheme to 'NoColor'"""
     @magic_arguments.magic_arguments()
     @magic_arguments.argument(
         '-e', '--export', action='store_true', default=False,
-        help='Export IPython history as a notebook. The filename argument '
-             'is used to specify the notebook name and format. For example '
-             'a filename of notebook.ipynb will result in a notebook name '
-             'of "notebook" and a format of "json". Likewise using a ".py" '
-             'file extension will write the notebook as a Python script'
+        help=argparse.SUPPRESS
     )
     @magic_arguments.argument(
-        'filename', type=unicode_type,
+        'filename', type=str,
         help='Notebook name or filename'
     )
     @line_magic
@@ -592,23 +591,24 @@ Defaulting color scheme to 'NoColor'"""
         """Export and convert IPython notebooks.
 
         This function can export the current IPython history to a notebook file.
-        For example, to export the history to "foo.ipynb" do "%notebook -e foo.ipynb".
-        To export the history to "foo.py" do "%notebook -e foo.py".
+        For example, to export the history to "foo.ipynb" do "%notebook foo.ipynb".
+
+        The -e or --export flag is deprecated in IPython 5.2, and will be
+        removed in the future.
         """
         args = magic_arguments.parse_argstring(self.notebook, s)
 
         from nbformat import write, v4
-        args.filename = unquote_filename(args.filename)
-        if args.export:
-            cells = []
-            hist = list(self.shell.history_manager.get_range())
-            if(len(hist)<=1):
-                raise ValueError('History is empty, cannot export')
-            for session, execution_count, source in hist[:-1]:
-                cells.append(v4.new_code_cell(
-                    execution_count=execution_count,
-                    source=source
-                ))
-            nb = v4.new_notebook(cells=cells)
-            with io.open(args.filename, 'w', encoding='utf-8') as f:
-                write(nb, f, version=4)
+
+        cells = []
+        hist = list(self.shell.history_manager.get_range())
+        if(len(hist)<=1):
+            raise ValueError('History is empty, cannot export')
+        for session, execution_count, source in hist[:-1]:
+            cells.append(v4.new_code_cell(
+                execution_count=execution_count,
+                source=source
+            ))
+        nb = v4.new_notebook(cells=cells)
+        with io.open(args.filename, 'w', encoding='utf-8') as f:
+            write(nb, f, version=4)

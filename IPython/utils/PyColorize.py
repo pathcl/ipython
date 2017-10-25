@@ -28,9 +28,6 @@ It shows how to use the built-in keyword, token and tokenize modules to
 scan Python source code and re-emit it with no changes to its original
 formatting (which is the hard part).
 """
-from __future__ import print_function
-from __future__ import absolute_import
-from __future__ import unicode_literals
 
 __all__ = ['ANSICodeColors','Parser']
 
@@ -44,25 +41,14 @@ import sys
 import token
 import tokenize
 
-try:
-    generate_tokens = tokenize.generate_tokens
-except AttributeError:
-    # Python 3. Note that we use the undocumented _tokenize because it expects
-    # strings, not bytes. See also Python issue #9969.
-    generate_tokens = tokenize._tokenize
+generate_tokens = tokenize.generate_tokens
 
 from IPython.utils.coloransi import TermColors, InputTermColors ,ColorScheme, ColorSchemeTable
-from IPython.utils.py3compat import PY3
-
 from .colorable import Colorable
-
-if PY3:
-    from io import StringIO
-else:
-    from StringIO import StringIO
+from io import StringIO
 
 #############################################################################
-### Python Source Parser (does Hilighting)
+### Python Source Parser (does Highlighting)
 #############################################################################
 
 _KEYWORD = token.NT_OFFSET + 1
@@ -122,8 +108,8 @@ LinuxColors = ColorScheme(
     'normal'         : Colors.Normal  # color off (usu. Colors.Normal)
     } )
 
-LightBGColors = ColorScheme(
-    'LightBG',{
+NeutralColors = ColorScheme(
+    'Neutral',{
     'header'         : Colors.Red,
     token.NUMBER     : Colors.Cyan,
     token.OP         : Colors.Blue,
@@ -146,9 +132,46 @@ LightBGColors = ColorScheme(
     'normal'         : Colors.Normal  # color off (usu. Colors.Normal)
     }  )
 
+# Hack: the 'neutral' colours are not very visible on a dark background on
+# Windows. Since Windows command prompts have a dark background by default, and
+# relatively few users are likely to alter that, we will use the 'Linux' colours,
+# designed for a dark background, as the default on Windows. Changing it here
+# avoids affecting the prompt colours rendered by prompt_toolkit, where the
+# neutral defaults do work OK.
+
+if os.name == 'nt':
+    NeutralColors = LinuxColors.copy(name='Neutral')
+
+LightBGColors = ColorScheme(
+    'LightBG',{
+    'header'         : Colors.Red,
+    token.NUMBER     : Colors.Cyan,
+    token.OP         : Colors.Blue,
+    token.STRING     : Colors.Blue,
+    tokenize.COMMENT : Colors.Red,
+    token.NAME       : Colors.Normal,
+    token.ERRORTOKEN : Colors.Red,
+
+
+    _KEYWORD         : Colors.Green,
+    _TEXT            : Colors.Blue,
+
+    'in_prompt'      : InputTermColors.Blue,
+    'in_number'      : InputTermColors.LightBlue,
+    'in_prompt2'     : InputTermColors.Blue,
+    'in_normal'      : InputTermColors.Normal,  # color off (usu. Colors.Normal)
+
+    'out_prompt'     : Colors.Red,
+    'out_number'     : Colors.LightRed,
+
+    'normal'         : Colors.Normal  # color off (usu. Colors.Normal)
+    }  )
+
 # Build table of color schemes (needed by the parser)
-ANSICodeColors = ColorSchemeTable([NoColor,LinuxColors,LightBGColors],
+ANSICodeColors = ColorSchemeTable([NoColor,LinuxColors,LightBGColors, NeutralColors],
                                   _scheme_default)
+
+Undefined = object()
 
 class Parser(Colorable):
     """ Format colored Python source.
@@ -164,11 +187,21 @@ class Parser(Colorable):
 
         self.color_table = color_table and color_table or ANSICodeColors
         self.out = out
+        if not style:
+            self.style = self.default_style
+        else:
+            self.style = style
 
-    def format(self, raw, out = None, scheme = ''):
-        return self.format2(raw, out, scheme)[0]
 
-    def format2(self, raw, out = None, scheme = ''):
+    def format(self, raw, out=None, scheme=Undefined):
+        import warnings
+        if scheme is not Undefined:
+            warnings.warn('The `scheme` argument of IPython.utils.PyColorize:Parser.format is deprecated since IPython 6.0.'
+                          'It will have no effect. Set the parser `style` directly.',
+                          stacklevel=2)
+        return self.format2(raw, out)[0]
+
+    def format2(self, raw, out = None):
         """ Parse and send the colored source.
 
         If out and scheme are not specified, the defaults (given to
@@ -192,7 +225,7 @@ class Parser(Colorable):
             self.out = out
 
         # Fast return of the unmodified input for NoColor scheme
-        if scheme == 'NoColor':
+        if self.style == 'NoColor':
             error = False
             self.out.write(raw)
             if string_output:
@@ -201,7 +234,7 @@ class Parser(Colorable):
                 return None,error
 
         # local shorthands
-        colors = self.color_table[scheme].colors
+        colors = self.color_table[self.style].colors
         self.colors = colors # put in object so __call__ sees it
 
         # Remove trailing whitespace and normalize tabs
@@ -283,65 +316,3 @@ class Parser(Colorable):
 
         # send text
         owrite('%s%s%s' % (color,toktext,colors.normal))
-
-def main(argv=None):
-    """Run as a command-line script: colorize a python file or stdin using ANSI
-    color escapes and print to stdout.
-
-    Inputs:
-
-      - argv(None): a list of strings like sys.argv[1:] giving the command-line
-        arguments. If None, use sys.argv[1:].
-    """
-
-    usage_msg = """%prog [options] [filename]
-
-Colorize a python file or stdin using ANSI color escapes and print to stdout.
-If no filename is given, or if filename is -, read standard input."""
-
-    import optparse
-    parser = optparse.OptionParser(usage=usage_msg)
-    newopt = parser.add_option
-    newopt('-s','--scheme',metavar='NAME',dest='scheme_name',action='store',
-           choices=['Linux','LightBG','NoColor'],default=_scheme_default,
-           help="give the color scheme to use. Currently only 'Linux'\
- (default) and 'LightBG' and 'NoColor' are implemented (give without\
- quotes)")
-
-    opts,args = parser.parse_args(argv)
-
-    if len(args) > 1:
-        parser.error("you must give at most one filename.")
-
-    if len(args) == 0:
-        fname = '-' # no filename given; setup to read from stdin
-    else:
-        fname = args[0]
-
-    if fname == '-':
-        stream = sys.stdin
-    else:
-        try:
-            stream = open(fname)
-        except IOError as msg:
-            print(msg, file=sys.stderr)
-            sys.exit(1)
-
-    parser = Parser()
-
-    # we need nested try blocks because pre-2.5 python doesn't support unified
-    # try-except-finally
-    try:
-        try:
-            # write colorized version to stdout
-            parser.format(stream.read(),scheme=opts.scheme_name)
-        except IOError as msg:
-            # if user reads through a pager and quits, don't print traceback
-            if msg.args != (32,'Broken pipe'):
-                raise
-    finally:
-        if stream is not sys.stdin:
-            stream.close() # in case a non-handled exception happened above
-
-if __name__ == "__main__":
-    main()

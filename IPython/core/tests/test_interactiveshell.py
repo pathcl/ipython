@@ -16,10 +16,9 @@ import shutil
 import sys
 import tempfile
 import unittest
-try:
-    from unittest import mock
-except ImportError:
-    import mock
+from unittest import mock
+from io import StringIO
+
 from os.path import join
 
 import nose.tools as nt
@@ -32,12 +31,6 @@ from IPython.testing.decorators import (
 from IPython.testing import tools as tt
 from IPython.utils.process import find_cmd
 from IPython.utils import py3compat
-from IPython.utils.py3compat import unicode_type, PY3
-
-if PY3:
-    from io import StringIO
-else:
-    from StringIO import StringIO
 
 #-----------------------------------------------------------------------------
 # Globals
@@ -143,26 +136,14 @@ class InteractiveShellTestCase(unittest.TestCase):
 
     def test_future_flags(self):
         """Check that future flags are used for parsing code (gh-777)"""
-        ip.run_cell('from __future__ import print_function')
+        ip.run_cell('from __future__ import barry_as_FLUFL')
         try:
-            ip.run_cell('prfunc_return_val = print(1,2, sep=" ")')
+            ip.run_cell('prfunc_return_val = 1 <> 2')
             assert 'prfunc_return_val' in ip.user_ns
         finally:
             # Reset compiler flags so we don't mess up other tests.
             ip.compile.reset_compiler_flags()
 
-    def test_future_unicode(self):
-        """Check that unicode_literals is imported from __future__ (gh #786)"""
-        try:
-            ip.run_cell(u'byte_str = "a"')
-            assert isinstance(ip.user_ns['byte_str'], str) # string literals are byte strings by default
-            ip.run_cell('from __future__ import unicode_literals')
-            ip.run_cell(u'unicode_str = "a"')
-            assert isinstance(ip.user_ns['unicode_str'], unicode_type) # strings literals are now unicode
-        finally:
-            # Reset compiler flags so we don't mess up other tests.
-            ip.compile.reset_compiler_flags()
-    
     def test_can_pickle(self):
         "Can we pickle objects defined interactively (GH-29)"
         ip = get_ipython()
@@ -196,33 +177,19 @@ class InteractiveShellTestCase(unittest.TestCase):
 
     def test_bad_custom_tb(self):
         """Check that InteractiveShell is protected from bad custom exception handlers"""
-        from IPython.utils import io
-        save_stderr = io.stderr
-        try:
-            # capture stderr
-            io.stderr = StringIO()
-            ip.set_custom_exc((IOError,), lambda etype,value,tb: 1/0)
-            self.assertEqual(ip.custom_exceptions, (IOError,))
+        ip.set_custom_exc((IOError,), lambda etype,value,tb: 1/0)
+        self.assertEqual(ip.custom_exceptions, (IOError,))
+        with tt.AssertPrints("Custom TB Handler failed", channel='stderr'):
             ip.run_cell(u'raise IOError("foo")')
-            self.assertEqual(ip.custom_exceptions, ())
-            self.assertTrue("Custom TB Handler failed" in io.stderr.getvalue())
-        finally:
-            io.stderr = save_stderr
+        self.assertEqual(ip.custom_exceptions, ())
 
     def test_bad_custom_tb_return(self):
         """Check that InteractiveShell is protected from bad return types in custom exception handlers"""
-        from IPython.utils import io
-        save_stderr = io.stderr
-        try:
-            # capture stderr
-            io.stderr = StringIO()
-            ip.set_custom_exc((NameError,),lambda etype,value,tb, tb_offset=None: 1)
-            self.assertEqual(ip.custom_exceptions, (NameError,))
+        ip.set_custom_exc((NameError,),lambda etype,value,tb, tb_offset=None: 1)
+        self.assertEqual(ip.custom_exceptions, (NameError,))
+        with tt.AssertPrints("Custom TB Handler failed", channel='stderr'):
             ip.run_cell(u'a=abracadabra')
-            self.assertEqual(ip.custom_exceptions, ())
-            self.assertTrue("Custom TB Handler failed" in io.stderr.getvalue())
-        finally:
-            io.stderr = save_stderr
+        self.assertEqual(ip.custom_exceptions, ())
 
     def test_drop_by_id(self):
         myvars = {"a":object(), "b":object(), "c": object()}
@@ -244,11 +211,13 @@ class InteractiveShellTestCase(unittest.TestCase):
         self.assertEqual(ip.var_expand(u'echo {f}'), u'echo Ca\xf1o')
         self.assertEqual(ip.var_expand(u'echo {f[:-1]}'), u'echo Ca\xf1')
         self.assertEqual(ip.var_expand(u'echo {1*2}'), u'echo 2')
+        
+        self.assertEqual(ip.var_expand(u"grep x | awk '{print $1}'"), u"grep x | awk '{print $1}'")
 
         ip.user_ns['f'] = b'Ca\xc3\xb1o'
         # This should not raise any exception:
         ip.var_expand(u'echo $f')
-    
+   
     def test_var_expand_local(self):
         """Test local variable expansion in !system and %magic calls"""
         # !system
@@ -294,6 +263,7 @@ class InteractiveShellTestCase(unittest.TestCase):
         pre_always = mock.Mock()
         post_explicit = mock.Mock()
         post_always = mock.Mock()
+        all_mocks = [pre_explicit, pre_always, post_explicit, post_always]
         
         ip.events.register('pre_run_cell', pre_explicit)
         ip.events.register('pre_execute', pre_always)
@@ -311,6 +281,19 @@ class InteractiveShellTestCase(unittest.TestCase):
             ip.run_cell("1")
             assert pre_explicit.called
             assert post_explicit.called
+            info, = pre_explicit.call_args[0]
+            result, = post_explicit.call_args[0]
+            self.assertEqual(info, result.info)
+            # check that post hooks are always called
+            [m.reset_mock() for m in all_mocks]
+            ip.run_cell("syntax error")
+            assert pre_always.called
+            assert pre_explicit.called
+            assert post_always.called
+            assert post_explicit.called
+            info, = pre_explicit.call_args[0]
+            result, = post_explicit.call_args[0]
+            self.assertEqual(info, result.info)
         finally:
             # remove post-exec
             ip.events.unregister('pre_run_cell', pre_explicit)
@@ -352,19 +335,6 @@ class InteractiveShellTestCase(unittest.TestCase):
         finally:
             trap.hook = save_hook
 
-    @skipif(sys.version_info[0] >= 3, "softspace removed in py3")
-    def test_print_softspace(self):
-        """Verify that softspace is handled correctly when executing multiple
-        statements.
-
-        In [1]: print 1; print 2
-        1
-        2
-
-        In [2]: print 1,; print 2
-        1 2
-        """
-        
     def test_ofind_line_magic(self):
         from IPython.core.magic import register_line_magic
         
@@ -448,6 +418,21 @@ class InteractiveShellTestCase(unittest.TestCase):
         found = ip._ofind('a.foo', [('locals', locals())])
         nt.assert_is(found['obj'], A.foo)
 
+    def test_custom_syntaxerror_exception(self):
+        called = []
+        def my_handler(shell, etype, value, tb, tb_offset=None):
+            called.append(etype)
+            shell.showtraceback((etype, value, tb), tb_offset=tb_offset)
+
+        ip.set_custom_exc((SyntaxError,), my_handler)
+        try:
+            ip.run_cell("1f")
+            # Check that this was called, and only once.
+            self.assertEqual(called, [SyntaxError])
+        finally:
+            # Reset the custom exception hook
+            ip.set_custom_exc((), None)
+
     def test_custom_exception(self):
         called = []
         def my_handler(shell, etype, value, tb, tb_offset=None):
@@ -465,22 +450,6 @@ class InteractiveShellTestCase(unittest.TestCase):
             # Reset the custom exception hook
             ip.set_custom_exc((), None)
     
-    @skipif(sys.version_info[0] >= 3, "no differences with __future__ in py3")
-    def test_future_environment(self):
-        "Can we run code with & without the shell's __future__ imports?"
-        ip.run_cell("from __future__ import division")
-        ip.run_cell("a = 1/2", shell_futures=True)
-        self.assertEqual(ip.user_ns['a'], 0.5)
-        ip.run_cell("b = 1/2", shell_futures=False)
-        self.assertEqual(ip.user_ns['b'], 0)
-        
-        ip.compile.reset_compiler_flags()
-        # This shouldn't leak to the shell's compiler
-        ip.run_cell("from __future__ import division \nc=1/2", shell_futures=False)
-        self.assertEqual(ip.user_ns['c'], 0.5)
-        ip.run_cell("d = 1/2", shell_futures=True)
-        self.assertEqual(ip.user_ns['d'], 0)
-
     def test_mktempfile(self):
         filename = ip.mktempfile()
         # Check that we can open the file again on Windows
@@ -508,10 +477,24 @@ class InteractiveShellTestCase(unittest.TestCase):
             raise DerivedInterrupt("foo")
         except KeyboardInterrupt:
             msg = ip.get_exception_only()
-        if sys.version_info[0] <= 2:
-            self.assertEqual(msg, 'DerivedInterrupt: foo\n')
-        else:
-            self.assertEqual(msg, 'IPython.core.tests.test_interactiveshell.DerivedInterrupt: foo\n')
+        self.assertEqual(msg, 'IPython.core.tests.test_interactiveshell.DerivedInterrupt: foo\n')
+
+    def test_inspect_text(self):
+        ip.run_cell('a = 5')
+        text = ip.object_inspect_text('a')
+        self.assertIsInstance(text, str)
+
+    def test_last_execution_result(self):
+        """ Check that last execution result gets set correctly (GH-10702) """
+        result = ip.run_cell('a = 5; a')
+        self.assertTrue(ip.last_execution_succeeded)
+        self.assertEqual(ip.last_execution_result.result, 5)
+
+        result = ip.run_cell('a = x_invalid_id_x')
+        self.assertFalse(ip.last_execution_succeeded)
+        self.assertFalse(ip.last_execution_result.success)
+        self.assertIsInstance(ip.last_execution_result.error_in_exec, NameError)
+
 
 class TestSafeExecfileNonAsciiPath(unittest.TestCase):
 
@@ -522,7 +505,7 @@ class TestSafeExecfileNonAsciiPath(unittest.TestCase):
         os.mkdir(self.TESTDIR)
         with open(join(self.TESTDIR, u"åäötestscript.py"), "w") as sfile:
             sfile.write("pass\n")
-        self.oldpath = py3compat.getcwd()
+        self.oldpath = os.getcwd()
         os.chdir(self.TESTDIR)
         self.fname = u"åäötestscript.py"
 
@@ -642,12 +625,12 @@ class TestAstTransform(unittest.TestCase):
             called.add(x)
         ip.push({'f':f})
         
-        with tt.AssertPrints("best of "):
+        with tt.AssertPrints("std. dev. of"):
             ip.run_line_magic("timeit", "-n1 f(1)")
         self.assertEqual(called, {-1})
         called.clear()
-        
-        with tt.AssertPrints("best of "):
+
+        with tt.AssertPrints("std. dev. of"):
             ip.run_cell_magic("timeit", "-n1 f(2)", "f(3)")
         self.assertEqual(called, {-2, -3})
     
@@ -714,13 +697,13 @@ class TestAstTransform2(unittest.TestCase):
         def f(x):
             called.add(x)
         ip.push({'f':f})
-        
-        with tt.AssertPrints("best of "):
+
+        with tt.AssertPrints("std. dev. of"):
             ip.run_line_magic("timeit", "-n1 f(1)")
         self.assertEqual(called, {(1,)})
         called.clear()
-        
-        with tt.AssertPrints("best of "):
+
+        with tt.AssertPrints("std. dev. of"):
             ip.run_cell_magic("timeit", "-n1 f(2)", "f(3)")
         self.assertEqual(called, {(2,), (3,)})
 

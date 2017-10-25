@@ -3,21 +3,19 @@
 
 Needs to be run by nose (to make ipython session available).
 """
-from __future__ import absolute_import
 
 import io
 import os
+import re
 import sys
 import warnings
 from unittest import TestCase
-
-try:
-    from importlib import invalidate_caches   # Required from Python 3.3
-except ImportError:
-    def invalidate_caches():
-        pass
+from importlib import invalidate_caches
+from io import StringIO
 
 import nose.tools as nt
+
+import shlex
 
 from IPython import get_ipython
 from IPython.core import magic
@@ -25,7 +23,7 @@ from IPython.core.error import UsageError
 from IPython.core.magic import (Magics, magics_class, line_magic,
                                 cell_magic,
                                 register_line_magic, register_cell_magic)
-from IPython.core.magics import execution, script, code
+from IPython.core.magics import execution, script, code, logging
 from IPython.testing import decorators as dec
 from IPython.testing import tools as tt
 from IPython.utils import py3compat
@@ -33,11 +31,9 @@ from IPython.utils.io import capture_output
 from IPython.utils.tempdir import TemporaryDirectory
 from IPython.utils.process import find_cmd
 
-if py3compat.PY3:
-    from io import StringIO
-else:
-    from StringIO import StringIO
 
+
+_ip = get_ipython()
 
 @magic.magics_class
 class DummyMagics(magic.Magics): pass
@@ -78,6 +74,35 @@ def test_extract_symbols_raises_exception_with_non_python_code():
     with nt.assert_raises(SyntaxError):
         code.extract_symbols(source, "hello")
 
+
+def test_magic_not_found():
+    # magic not found raises UsageError
+    with nt.assert_raises(UsageError):
+        _ip.magic('doesntexist')
+
+    # ensure result isn't success when a magic isn't found
+    result = _ip.run_cell('%doesntexist')
+    assert isinstance(result.error_in_exec, UsageError)
+
+
+def test_cell_magic_not_found():
+    # magic not found raises UsageError
+    with nt.assert_raises(UsageError):
+        _ip.run_cell_magic('doesntexist', 'line', 'cell')
+
+    # ensure result isn't success when a magic isn't found
+    result = _ip.run_cell('%%doesntexist')
+    assert isinstance(result.error_in_exec, UsageError)
+
+
+def test_magic_error_status():
+    def fail(shell):
+        1/0
+    _ip.register_magic_function(fail)
+    result = _ip.run_cell('%fail')
+    assert isinstance(result.error_in_exec, ZeroDivisionError)
+
+
 def test_config():
     """ test that config magic does not raise
     can happen if Configurable init is moved too early into
@@ -87,9 +112,29 @@ def test_config():
     ## should not raise.
     _ip.magic('config')
 
+def test_config_available_configs():
+    """ test that config magic prints available configs in unique and
+    sorted order. """
+    with capture_output() as captured:
+        _ip.magic('config')
+
+    stdout = captured.stdout
+    config_classes = stdout.strip().split('\n')[1:]
+    nt.assert_list_equal(config_classes, sorted(set(config_classes)))
+
+def test_config_print_class():
+    """ test that config with a classname prints the class's options. """
+    with capture_output() as captured:
+        _ip.magic('config TerminalInteractiveShell')
+
+    stdout = captured.stdout
+    if not re.match("TerminalInteractiveShell.* options", stdout.splitlines()[0]):
+        print(stdout)
+        raise AssertionError("1st line of stdout not like "
+                             "'TerminalInteractiveShell.* options'")
+
 def test_rehashx():
     # clear up everything
-    _ip = get_ipython()
     _ip.alias_manager.clear_aliases()
     del _ip.db['syscmdlist']
     
@@ -376,18 +421,6 @@ def test_time3():
                     "run = 0\n"
                     "run += 1")
 
-@dec.skipif(sys.version_info[0] >= 3, "no differences with __future__ in py3")
-def test_time_futures():
-    "Test %time with __future__ environments"
-    ip = get_ipython()
-    ip.autocall = 0
-    ip.run_cell("from __future__ import division")
-    with tt.AssertPrints('0.25'):
-        ip.run_line_magic('time', 'print(1/4)')
-    ip.compile.reset_compiler_flags()
-    with tt.AssertNotPrints('0.25'):
-        ip.run_line_magic('time', 'print(1/4)')
-
 def test_doctest_mode():
     "Toggle doctest_mode twice, it should be a no-op and run without error"
     _ip.magic('doctest_mode')
@@ -405,9 +438,9 @@ def test_parse_options():
     
 def test_dirops():
     """Test various directory handling operations."""
-    # curpath = lambda :os.path.splitdrive(py3compat.getcwd())[1].replace('\\','/')
-    curpath = py3compat.getcwd
-    startdir = py3compat.getcwd()
+    # curpath = lambda :os.path.splitdrive(os.getcwd())[1].replace('\\','/')
+    curpath = os.getcwd
+    startdir = os.getcwd()
     ipdir = os.path.realpath(_ip.ipython_dir)
     try:
         _ip.magic('cd "%s"' % ipdir)
@@ -506,16 +539,16 @@ def doctest_precision():
     In [1]: f = get_ipython().display_formatter.formatters['text/plain']
     
     In [2]: %precision 5
-    Out[2]: {u}'%.5f'
+    Out[2]: '%.5f'
     
     In [3]: f.float_format
-    Out[3]: {u}'%.5f'
+    Out[3]: '%.5f'
     
     In [4]: %precision %e
-    Out[4]: {u}'%e'
+    Out[4]: '%e'
     
     In [5]: f(3.1415927)
-    Out[5]: {u}'3.141593e+00'
+    Out[5]: '3.141593e+00'
     """
 
 def test_psearch():
@@ -572,16 +605,9 @@ def test_timeit_return_quiet():
         res = _ip.run_line_magic('timeit', '-n1 -r1 -q -o 1')
     assert (res is not None)
 
-@dec.skipif(sys.version_info[0] >= 3, "no differences with __future__ in py3")
-def test_timeit_futures():
-    "Test %timeit with __future__ environments"
-    ip = get_ipython()
-    ip.run_cell("from __future__ import division")
-    with tt.AssertPrints('0.25'):
-        ip.run_line_magic('timeit', '-n1 -r1 print(1/4)')
-    ip.compile.reset_compiler_flags()
-    with tt.AssertNotPrints('0.25'):
-        ip.run_line_magic('timeit', '-n1 -r1 print(1/4)')
+def test_timeit_invalid_return():
+    with nt.assert_raises_regex(SyntaxError, "outside function"):
+        _ip.run_line_magic('timeit', 'return')
 
 @dec.skipif(execution.profile is None)
 def test_prun_special_syntax():
@@ -625,7 +651,6 @@ def test_extension():
         sys.path.remove(daft_path)
 
 
-@dec.skip_without('nbformat')
 def test_notebook_export_json():
     _ip = get_ipython()
     _ip.history_manager.reset()   # Clear any existing history.
@@ -899,6 +924,11 @@ def test_alias_magic():
     nt.assert_equal(ip.run_line_magic('env', ''),
                     ip.run_line_magic('env_alias', ''))
 
+    # Test that line alias with parameters passed in is created successfully.
+    ip.run_line_magic('alias_magic', '--line history_alias history --params ' + shlex.quote('3'))
+    nt.assert_in('history_alias', mm.magics['line'])
+
+
 def test_save():
     """Test %save."""
     ip = get_ipython()
@@ -1000,3 +1030,44 @@ def test_ls_magic():
         j = json_formatter(lsmagic)
     nt.assert_equal(sorted(j), ['cell', 'line'])
     nt.assert_equal(w, []) # no warnings
+
+def test_strip_initial_indent():
+    def sii(s):
+        lines = s.splitlines()
+        return '\n'.join(code.strip_initial_indent(lines))
+
+    nt.assert_equal(sii("  a = 1\nb = 2"), "a = 1\nb = 2")
+    nt.assert_equal(sii("  a\n    b\nc"), "a\n  b\nc")
+    nt.assert_equal(sii("a\n  b"), "a\n  b")
+
+def test_logging_magic_quiet_from_arg():
+    _ip.config.LoggingMagics.quiet = False
+    lm = logging.LoggingMagics(shell=_ip)
+    with TemporaryDirectory() as td:
+        try:
+            with tt.AssertNotPrints(re.compile("Activating.*")):
+                lm.logstart('-q {}'.format(
+                        os.path.join(td, "quiet_from_arg.log")))
+        finally:
+            _ip.logger.logstop()
+
+def test_logging_magic_quiet_from_config():
+    _ip.config.LoggingMagics.quiet = True
+    lm = logging.LoggingMagics(shell=_ip)
+    with TemporaryDirectory() as td:
+        try:
+            with tt.AssertNotPrints(re.compile("Activating.*")):
+                lm.logstart(os.path.join(td, "quiet_from_config.log"))
+        finally:
+            _ip.logger.logstop()
+    
+def test_logging_magic_not_quiet():
+    _ip.config.LoggingMagics.quiet = False
+    lm = logging.LoggingMagics(shell=_ip)
+    with TemporaryDirectory() as td:
+        try:
+            with tt.AssertPrints(re.compile("Activating.*")):
+                lm.logstart(os.path.join(td, "not_quiet.log"))
+        finally:
+            _ip.logger.logstop()
+    

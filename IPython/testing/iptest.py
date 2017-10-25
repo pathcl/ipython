@@ -17,7 +17,6 @@ itself from the command line. There are two ways of running this script:
 # Copyright (c) IPython Development Team.
 # Distributed under the terms of the Modified BSD License.
 
-from __future__ import print_function
 
 import glob
 from io import BytesIO
@@ -44,22 +43,39 @@ pjoin = path.join
 
 
 # Enable printing all warnings raise by IPython's modules
+warnings.filterwarnings('ignore', message='.*Matplotlib is building the font cache.*', category=UserWarning, module='.*')
+warnings.filterwarnings('error', message='.*', category=ResourceWarning, module='.*')
+warnings.filterwarnings('error', message=".*{'config': True}.*", category=DeprecationWarning, module='IPy.*')
 warnings.filterwarnings('default', message='.*', category=Warning, module='IPy.*')
 
+warnings.filterwarnings('error', message='.*apply_wrapper.*', category=DeprecationWarning, module='.*')
+warnings.filterwarnings('error', message='.*make_label_dec', category=DeprecationWarning, module='.*')
+warnings.filterwarnings('error', message='.*decorated_dummy.*', category=DeprecationWarning, module='.*')
+warnings.filterwarnings('error', message='.*skip_file_no_x11.*', category=DeprecationWarning, module='.*')
+warnings.filterwarnings('error', message='.*onlyif_any_cmd_exists.*', category=DeprecationWarning, module='.*')
 
-if version_info < (4,2):
-    # ignore some warnings from traitlets until 6.0
-    warnings.filterwarnings('ignore', message='.*on_trait_change is deprecated: use observe instead.*')
-    warnings.filterwarnings('ignore', message='.*was set from the constructor.*', category=Warning, module='IPython.*')
-    warnings.filterwarnings('ignore', message='.*use the instance .help string directly, like x.help.*', category=DeprecationWarning, module='IPython.*')
-else :
-    warnings.warn('iptest has been filtering out for Traitlets warnings messages, for 2 minor versions (since 4.x), please consider updating to use new API')
+warnings.filterwarnings('error', message='.*disable_gui.*', category=DeprecationWarning, module='.*')
+
+warnings.filterwarnings('error', message='.*ExceptionColors global is deprecated.*', category=DeprecationWarning, module='.*')
+
+# Jedi older versions
+warnings.filterwarnings(
+    'error', message='.*elementwise != comparison failed and.*', category=FutureWarning, module='.*')
 
 if version_info < (6,):
     # nose.tools renames all things from `camelCase` to `snake_case` which raise an
     # warning with the runner they also import from standard import library. (as of Dec 2015)
     # Ignore, let's revisit that in a couple of years for IPython 6.
-    warnings.filterwarnings('ignore', message='.*Please use assertEqual instead', category=Warning, module='IPython.*')
+    warnings.filterwarnings(
+        'ignore', message='.*Please use assertEqual instead', category=Warning, module='IPython.*')
+
+if version_info < (7,):
+    warnings.filterwarnings('ignore', message='.*Completer.complete.*',
+                            category=PendingDeprecationWarning, module='.*')
+else:
+    warnings.warn(
+        'Completer.complete was pending deprecation and should be changed to Deprecated', FutureWarning)
+
 
 
 # ------------------------------------------------------------------------------
@@ -369,9 +385,6 @@ def run_iptest():
     if '--with-xunit' in sys.argv and not hasattr(Xunit, 'orig_addError'):
         monkeypatch_xunit()
 
-    warnings.filterwarnings('ignore',
-        'This will be removed soon.  Use IPython.testing.util instead')
-    
     arg1 = sys.argv[1]
     if arg1 in test_sections:
         section = test_sections[arg1]
@@ -410,7 +423,7 @@ def run_iptest():
                SubprocessStreamCapturePlugin() ]
     
     # we still have some vestigial doctests in core
-    if (section.name.startswith(('core', 'IPython.core'))):
+    if (section.name.startswith(('core', 'IPython.core', 'IPython.utils'))):
         plugins.append(IPythonDoctest())
         argv.extend([
             '--with-ipdoctest',

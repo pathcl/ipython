@@ -19,7 +19,6 @@ import unittest
 
 from IPython.testing import decorators as dec
 from IPython.testing import tools as tt
-from IPython.utils.py3compat import PY3
 
 sqlite_err_maybe = dec.module_not_available('sqlite3')
 SQLITE_NOT_AVAILABLE_ERROR = ('WARNING: IPython History requires SQLite,'
@@ -52,19 +51,6 @@ class TestFileToRun(unittest.TestCase, tt.TempFileMixin):
         src = "True\n"
         self.mktmp(src)
 
-        out = 'In [1]: False\n\nIn [2]:'
-        err = SQLITE_NOT_AVAILABLE_ERROR if sqlite_err_maybe else None
-        tt.ipexec_validate(self.fname, out, err, options=['-i'],
+        out, err = tt.ipexec(self.fname, options=['-i'],
                            commands=['"__file__" in globals()', 'exit()'])
-
-    @dec.skip_win32
-    @dec.skipif(PY3)
-    def test_py_script_file_compiler_directive(self):
-        """Test `__future__` compiler directives with `ipython -i file.py`"""
-        src = "from __future__ import division\n"
-        self.mktmp(src)
-
-        out = 'In [1]: float\n\nIn [2]:'
-        err = SQLITE_NOT_AVAILABLE_ERROR if sqlite_err_maybe else None
-        tt.ipexec_validate(self.fname, out, err, options=['-i'],
-                           commands=['type(1/2)', 'exit()'])
+        self.assertIn("False", out)
