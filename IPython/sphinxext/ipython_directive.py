@@ -104,8 +104,8 @@ or :okwarning: options:
         In [1]: 1/0
         In [2]: # raise warning.
 
-ToDo
-----
+To Do
+-----
 
 - Turn the ad-hoc test() function into a real test suite.
 - Break up ipython-specific functionality from matplotlib stuff into better
@@ -286,14 +286,6 @@ class EmbeddedSphinxShell(object):
         # This will persist across different EmbeddedSphinxShell instances.
         IP = InteractiveShell.instance(config=config, profile_dir=profile)
         atexit.register(self.cleanup)
-
-        sys.stdout = self.cout
-        sys.stderr = self.cout
-
-        # For debugging, so we can see normal output, use this:
-        #from IPython.utils.io import Tee
-        #sys.stdout = Tee(self.cout, channel='stdout') # dbg
-        #sys.stderr = Tee(self.cout, channel='stderr') # dbg
 
         # Store a few parts of IPython we'll need.
         self.IP = IP

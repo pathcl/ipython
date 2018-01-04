@@ -193,8 +193,8 @@ class ExecutionInfo(object):
         name = self.__class__.__qualname__
         raw_cell = ((self.raw_cell[:50] + '..')
                     if len(self.raw_cell) > 50 else self.raw_cell)
-        return '<%s object at %x, raw_cell="%s" store_history=%s silent=%s shell_futures=%s result=%s>' %\
-               (name, id(self), raw_cell, store_history, silent, shell_futures, repr(self.result))
+        return '<%s object at %x, raw_cell="%s" store_history=%s silent=%s shell_futures=%s>' %\
+               (name, id(self), raw_cell, self.store_history, self.silent, self.shell_futures)
 
 
 class ExecutionResult(object):
@@ -732,16 +732,23 @@ class InteractiveShell(SingletonConfigurable):
             # Not in a virtualenv
             return
         
-        # venv detection:
+        p = os.path.normcase(sys.executable)
+        p_venv = os.path.normcase(os.environ['VIRTUAL_ENV'])
+
+        # executable path should end like /bin/python or \\scripts\\python.exe
+        p_exe_up2 = os.path.dirname(os.path.dirname(p))
+        if p_exe_up2 and os.path.samefile(p_exe_up2, p_venv):
+            # Our exe is inside the virtualenv, don't need to do anything.
+            return
+
+        # fallback venv detection:
         # stdlib venv may symlink sys.executable, so we can't use realpath.
         # but others can symlink *to* the venv Python, so we can't just use sys.executable.
         # So we just check every item in the symlink tree (generally <= 3)
-        p = os.path.normcase(sys.executable)
         paths = [p]
         while os.path.islink(p):
             p = os.path.normcase(os.path.join(os.path.dirname(p), os.readlink(p)))
             paths.append(p)
-        p_venv = os.path.normcase(os.environ['VIRTUAL_ENV'])
         
         # In Cygwin paths like "c:\..." and '\cygdrive\c\...' are possible
         if p_venv.startswith('\\cygdrive'):
@@ -1899,7 +1906,7 @@ class InteractiveShell(SingletonConfigurable):
                 # Not the format we expect; leave it alone
                 pass
 
-        # If the error occured when executing compiled code, we should provide full stacktrace.
+        # If the error occurred when executing compiled code, we should provide full stacktrace.
         elist = traceback.extract_tb(last_traceback) if running_compiled_code else []
         stb = self.SyntaxTB.structured_traceback(etype, value, elist)
         self._showtraceback(etype, value, stb)
@@ -1940,7 +1947,7 @@ class InteractiveShell(SingletonConfigurable):
 
     def _indent_current_str(self):
         """return the current level of indentation as a string"""
-        return self.input_splitter.indent_spaces * ' '
+        return self.input_splitter.get_indent_spaces() * ' '
 
     #-------------------------------------------------------------------------
     # Things related to text completion

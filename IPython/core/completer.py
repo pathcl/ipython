@@ -360,7 +360,7 @@ class Completion:
     need user facing information.
 
     - Which range should be replaced replaced by what.
-    - Some metadata (like completion type), or meta informations to displayed to
+    - Some metadata (like completion type), or meta information to displayed to
       the use user.
 
     For debugging purpose we can also store the origin of the completion (``jedi``,
@@ -1350,11 +1350,17 @@ class IPCompleter(Completer):
 
         try:
             # should we check the type of the node is Error ?
-            from jedi.parser.tree import ErrorLeaf
+            try:
+                # jedi < 0.11
+                from jedi.parser.tree import ErrorLeaf
+            except ImportError:
+                # jedi >= 0.11
+                from parso.tree import ErrorLeaf
+
             next_to_last_tree = interpreter._get_module().tree_node.children[-2]
             completing_string = False
             if isinstance(next_to_last_tree, ErrorLeaf):
-                completing_string = interpreter._get_module().tree_node.children[-2].value[0] in {'"', "'"}
+                completing_string = next_to_last_tree.value[0] in {'"', "'"}
             # if we are in a string jedi is likely not the right candidate for
             # now. Skip it.
             try_jedi = not completing_string
@@ -1867,7 +1873,7 @@ class IPCompleter(Completer):
         start_offset = before.rfind(matched_text)
 
         # TODO:
-        # Supress this, right now just for debug.
+        # Suppress this, right now just for debug.
         if jedi_matches and matches and self.debug:
             yield Completion(start=start_offset, end=offset, text='--jedi/ipython--',
                              _origin='debug', type='none', signature='')
