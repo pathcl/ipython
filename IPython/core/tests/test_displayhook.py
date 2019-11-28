@@ -1,6 +1,7 @@
+import sys
 from IPython.testing.tools import AssertPrints, AssertNotPrints
-
-ip = get_ipython()
+from IPython.core.displayhook import CapturingDisplayHook
+from IPython.utils.capture import CapturedIO
 
 def test_output_displayed():
     """Checking to make sure that output is displayed"""
@@ -81,7 +82,7 @@ def test_interactivehooks_ast_modes():
     finally:
         ip.ast_node_interactivity = saved_mode
 
-def test_interactivehooks_ast_modes_semi_supress():
+def test_interactivehooks_ast_modes_semi_suppress():
     """
     Test that ast nodes can be triggered with different modes and suppressed
     by semicolon
@@ -101,3 +102,11 @@ def test_interactivehooks_ast_modes_semi_supress():
 
     finally:
         ip.ast_node_interactivity = saved_mode
+
+def test_capture_display_hook_format():
+    """Tests that the capture display hook conforms to the CapturedIO output format"""
+    hook = CapturingDisplayHook(ip)
+    hook({"foo": "bar"})
+    captured = CapturedIO(sys.stdout, sys.stderr, hook.outputs)
+    # Should not raise with RichOutput transformation error
+    captured.outputs

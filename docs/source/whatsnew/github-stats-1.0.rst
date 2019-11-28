@@ -580,7 +580,7 @@ Pull Requests (793):
 * :ghpull:`3576`: Added support for markdown in heading cells when they are nbconverted.
 * :ghpull:`3575`: tweak `run -d` message to 'continue execution'
 * :ghpull:`3569`: add PYTHONSTARTUP to startup files
-* :ghpull:`3567`: Trigger a single event on js app initilized
+* :ghpull:`3567`: Trigger a single event on js app initialized
 * :ghpull:`3565`: style.min.css should always exist...
 * :ghpull:`3531`: allow markdown in heading cells
 * :ghpull:`3577`: Simplify codemirror ipython-mode
@@ -1195,7 +1195,7 @@ Issues (691):
 * :ghissue:`3957`: Notebook help page broken in Firefox
 * :ghissue:`3894`: nbconvert test failure
 * :ghissue:`3887`: 1.0.0a1 shows blank screen in both firefox and chrome (windows 7)
-* :ghissue:`3703`: `nbconvert`: Output options -- names and documentataion
+* :ghissue:`3703`: `nbconvert`: Output options -- names and documentation
 * :ghissue:`3931`: Tab completion not working during debugging in the notebook
 * :ghissue:`3936`: Ipcluster plugin is not working with Ipython 1.0dev
 * :ghissue:`3941`: IPython Notebook kernel crash on Win7x64
@@ -1264,7 +1264,7 @@ Issues (691):
 * :ghissue:`3737`: ipython nbconvert crashes with ValueError: Invalid format string.
 * :ghissue:`3730`: nbconvert: unhelpful error when pandoc isn't installed
 * :ghissue:`3718`: markdown cell cursor misaligned in notebook
-* :ghissue:`3710`: mutiple input fields for %debug in the notebook after resetting the kernel
+* :ghissue:`3710`: multiple input fields for %debug in the notebook after resetting the kernel
 * :ghissue:`3713`: PyCharm has problems with IPython working inside PyPy created by virtualenv
 * :ghissue:`3712`: Code completion: Complete on dictionary keys
 * :ghissue:`3680`: --pylab and --matplotlib flag
@@ -1335,7 +1335,7 @@ Issues (691):
 * :ghissue:`2586`: cannot store aliases
 * :ghissue:`2714`: ipython qtconsole print unittest messages in console instead his own window. 
 * :ghissue:`2669`: cython magic failing to work with openmp.
-* :ghissue:`3256`: Vagrant pandas instance of iPython Notebook does not respect additional plotting arguments
+* :ghissue:`3256`: Vagrant pandas instance of IPython Notebook does not respect additional plotting arguments
 * :ghissue:`3010`: cython magic fail if cache dir is deleted while in session
 * :ghissue:`2044`: prune unused names from parallel.error
 * :ghissue:`1145`: Online help utility broken in QtConsole
@@ -1405,7 +1405,7 @@ Issues (691):
 * :ghissue:`3519`: IPython Parallel map mysteriously turns pandas Series into numpy ndarray
 * :ghissue:`3345`: IPython embedded shells ask if I want to exit, but I set confirm_exit = False
 * :ghissue:`3509`: IPython won't close without asking "Are you sure?" in Firefox 
-* :ghissue:`3471`: Notebook jinja2/markupsafe depedencies in manual
+* :ghissue:`3471`: Notebook jinja2/markupsafe dependencies in manual
 * :ghissue:`3502`: Notebook broken in master
 * :ghissue:`3302`: autoreload does not work in ipython 0.13.x, python 3.3
 * :ghissue:`3475`: no warning when leaving/closing notebook on master without saved changes
@@ -1477,7 +1477,7 @@ Issues (691):
 * :ghissue:`3380`: simple call to kernel
 * :ghissue:`3379`: TaskRecord key 'started' not set
 * :ghissue:`3241`: notebook connection time out
-* :ghissue:`3334`: magic interpreter interpretes non magic commands?
+* :ghissue:`3334`: magic interpreter interprets non magic commands?
 * :ghissue:`3326`: python3.3: Type error when launching SGE cluster in IPython notebook
 * :ghissue:`3349`: pip3 doesn't run 2to3?
 * :ghissue:`3347`: Longlist support in ipdb
@@ -1488,7 +1488,7 @@ Issues (691):
 * :ghissue:`3327`: Qt version check broken
 * :ghissue:`3303`: parallel tasks never finish under heavy load
 * :ghissue:`1381`: '\\' for equation continuations require an extra '\' in markdown cells
-* :ghissue:`3314`: Error launching iPython
+* :ghissue:`3314`: Error launching IPython
 * :ghissue:`3306`: Test failure when running on a Vagrant VM
 * :ghissue:`3280`: IPython.utils.process.getoutput returns stderr
 * :ghissue:`3299`: variables named _ or __ exhibit incorrect behavior
@@ -1791,7 +1791,7 @@ Issues (691):
 * :ghissue:`2381`: %time doesn't work for multiline statements
 * :ghissue:`1435`: Add size keywords in Image class
 * :ghissue:`2372`: interactiveshell.py misses urllib and io_open imports
-* :ghissue:`2371`: iPython not working
+* :ghissue:`2371`: IPython not working
 * :ghissue:`2367`: Tab expansion moves to next cell in notebook
 * :ghissue:`2359`: nbviever alters the order of print and display() output
 * :ghissue:`2227`: print name for IPython Notebooks has become uninformative
@@ -1847,7 +1847,7 @@ Issues (691):
 * :ghissue:`2156`: Make it possible to install ipython without nasty gui dependencies
 * :ghissue:`2154`: Scrolled long output should be off in print view by default
 * :ghissue:`2162`: Tab completion does not work with IPython.embed_kernel()
-* :ghissue:`2157`: iPython 0.13 / github-master cannot create logfile from scratch
+* :ghissue:`2157`: IPython 0.13 / github-master cannot create logfile from scratch
 * :ghissue:`2151`: missing newline when a magic is called from the qtconsole menu
 * :ghissue:`2139`: 00_notebook_tour Image example broken on master
 * :ghissue:`2143`: Add a %%cython_annotate magic
@@ -1860,7 +1860,7 @@ Issues (691):
 * :ghissue:`2121`: ipdb does not support input history in qtconsole
 * :ghissue:`2114`: %logstart doesn't log
 * :ghissue:`2085`: %ed magic fails in qtconsole
-* :ghissue:`2119`: iPython fails to run on MacOS Lion 
+* :ghissue:`2119`: IPython fails to run on MacOS Lion 
 * :ghissue:`2052`: %pylab inline magic does not work on windows
 * :ghissue:`2111`: Ipython won't start on W7
 * :ghissue:`2112`: Strange internal traceback

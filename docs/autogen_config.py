@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 from os.path import join, dirname, abspath
+import inspect
 
 from IPython.terminal.ipapp import TerminalIPythonApp
 from ipykernel.kernelapp import IPKernelApp
@@ -11,7 +12,9 @@ here = abspath(dirname(__file__))
 options = join(here, 'source', 'config', 'options')
 generated = join(options, 'config-generated.txt')
 
-from ipython_genutils.text import indent, dedent
+import textwrap
+indent = lambda text,n: textwrap.indent(text,n*' ')
+
 
 def interesting_default_value(dv):
     if (dv is None) or (dv is Undefined):
@@ -43,7 +46,7 @@ def class_config_rst_doc(cls, trait_aliases):
                  ]
 
         help = trait.help.rstrip() or 'No description'
-        lines.append(indent(dedent(help), 4) + '\n')
+        lines.append(indent(inspect.cleandoc(help), 4) + '\n')
 
         # Choices or type
         if 'Enum' in ttype:

@@ -8,9 +8,9 @@ itself from the command line. There are two ways of running this script:
    calling this script (with different arguments) recursively.  This
    causes modules and package to be tested in different processes, using nose
    or trial where appropriate.
-2. With the regular nose syntax, like `iptest -vvs IPython`.  In this form
+2. With the regular nose syntax, like `iptest IPython -- -vvs`. In this form
    the script simply calls nose, but with special command line flags and
-   plugins loaded.
+   plugins loaded. Options after `--` are passed to nose.
 
 """
 
@@ -69,7 +69,7 @@ if version_info < (6,):
     warnings.filterwarnings(
         'ignore', message='.*Please use assertEqual instead', category=Warning, module='IPython.*')
 
-if version_info < (7,):
+if version_info < (8,):
     warnings.filterwarnings('ignore', message='.*Completer.complete.*',
                             category=PendingDeprecationWarning, module='.*')
 else:
@@ -83,7 +83,7 @@ else:
 # ------------------------------------------------------------------------------
 def monkeypatch_xunit():
     try:
-        knownfailureif(True)(lambda: None)()
+        dec.knownfailureif(True)(lambda: None)()
     except Exception as e:
         KnownFailureTest = type(e)
 
@@ -385,6 +385,12 @@ def run_iptest():
     if '--with-xunit' in sys.argv and not hasattr(Xunit, 'orig_addError'):
         monkeypatch_xunit()
 
+    arg1 = sys.argv[1]
+    if arg1.startswith('IPython/'):
+        if arg1.endswith('.py'):
+            arg1 = arg1[:-3]
+        sys.argv[1] = arg1.replace('/', '.')
+    
     arg1 = sys.argv[1]
     if arg1 in test_sections:
         section = test_sections[arg1]

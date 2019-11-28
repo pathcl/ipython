@@ -66,11 +66,6 @@ extensions = [
     'configtraits',
 ]
 
-if ON_RTD:
-    # Remove extensions not currently supported on RTD
-    extensions.remove('IPython.sphinxext.ipython_directive')
-    extensions.remove('IPython.sphinxext.ipython_console_highlighting')
-
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
 
@@ -87,8 +82,10 @@ def is_stable(extra):
 
 if is_stable(iprelease['_version_extra']):
     tags.add('ipystable')
+    print('Adding Tag: ipystable')
 else:
     tags.add('ipydev')
+    print('Adding Tag: ipydev')
     rst_prolog += """
 .. warning::
 
@@ -122,6 +119,7 @@ github_project_url = "https://github.com/ipython/ipython"
 # numpydoc config
 numpydoc_show_class_members = False # Otherwise Sphinx emits thousands of warnings
 numpydoc_class_members_toctree = False
+warning_is_error = True
 
 # The default replacements for |version| and |release|, also used in various
 # other places throughout the built documents.
@@ -143,7 +141,7 @@ today_fmt = '%B %d, %Y'
 
 # Exclude these glob-style patterns when looking for source files. They are
 # relative to the source/ directory.
-exclude_patterns = ['whatsnew/pr']
+exclude_patterns = []
 
 
 # If true, '()' will be appended to :func: etc. cross-reference text.
@@ -226,7 +224,6 @@ htmlhelp_basename = 'ipythondoc'
 
 intersphinx_mapping = {'python': ('https://docs.python.org/3/', None),
                        'rpy2': ('https://rpy2.readthedocs.io/en/version_2.8.x/', None),
-                       'traitlets': ('https://traitlets.readthedocs.io/en/latest/', None),
                        'jupyterclient': ('https://jupyter-client.readthedocs.io/en/latest/', None),
                        'ipyparallel': ('https://ipyparallel.readthedocs.io/en/latest/', None),
                        'jupyter': ('https://jupyter.readthedocs.io/en/latest/', None),
@@ -235,7 +232,8 @@ intersphinx_mapping = {'python': ('https://docs.python.org/3/', None),
                        'ipykernel': ('https://ipykernel.readthedocs.io/en/latest/', None),
                        'prompt_toolkit' : ('https://python-prompt-toolkit.readthedocs.io/en/stable/', None),
                        'ipywidgets': ('https://ipywidgets.readthedocs.io/en/stable/', None),
-                       'ipyparallel': ('https://ipyparallel.readthedocs.io/en/stable/', None)
+                       'ipyparallel': ('https://ipyparallel.readthedocs.io/en/stable/', None),
+                       'pip': ('https://pip.pypa.io/en/stable/', None)
                       }
 
 # Options for LaTeX output

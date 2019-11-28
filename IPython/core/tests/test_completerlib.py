@@ -16,7 +16,7 @@ from os.path import join
 
 import nose.tools as nt
 
-from IPython.core.completerlib import magic_run_completer, module_completion
+from IPython.core.completerlib import magic_run_completer, module_completion, try_import
 from IPython.utils.tempdir import TemporaryDirectory
 from IPython.testing.decorators import onlyif_unicode_paths
 
@@ -48,7 +48,7 @@ class Test_magic_run_completer(unittest.TestCase):
         shutil.rmtree(self.BASETESTDIR)
 
     def test_1(self):
-        """Test magic_run_completer, should match two alterntives
+        """Test magic_run_completer, should match two alternatives
         """
         event = MockEvent(u"%run a")
         mockself = None
@@ -56,7 +56,7 @@ class Test_magic_run_completer(unittest.TestCase):
         self.assertEqual(match, {u"a.py", u"aao.py", u"adir/"})
 
     def test_2(self):
-        """Test magic_run_completer, should match one alterntive
+        """Test magic_run_completer, should match one alternative
         """
         event = MockEvent(u"%run aa")
         mockself = None
@@ -102,7 +102,7 @@ class Test_magic_run_completer_nonascii(unittest.TestCase):
 
     @onlyif_unicode_paths
     def test_1(self):
-        """Test magic_run_completer, should match two alterntives
+        """Test magic_run_completer, should match two alternatives
         """
         event = MockEvent(u"%run a")
         mockself = None
@@ -111,7 +111,7 @@ class Test_magic_run_completer_nonascii(unittest.TestCase):
 
     @onlyif_unicode_paths
     def test_2(self):
-        """Test magic_run_completer, should match one alterntive
+        """Test magic_run_completer, should match one alternative
         """
         event = MockEvent(u"%run aa")
         mockself = None
@@ -159,3 +159,20 @@ def test_bad_module_all():
             nt.assert_is_instance(r, str)
     finally:
         sys.path.remove(testsdir)
+
+
+def test_module_without_init():
+    """
+    Test module without __init__.py.
+    
+    https://github.com/ipython/ipython/issues/11226
+    """
+    fake_module_name = "foo"
+    with TemporaryDirectory() as tmpdir:
+        sys.path.insert(0, tmpdir)
+        try:
+            os.makedirs(os.path.join(tmpdir, fake_module_name))
+            s = try_import(mod=fake_module_name)
+            assert s == []
+        finally:
+            sys.path.remove(tmpdir)

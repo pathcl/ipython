@@ -31,11 +31,9 @@ from nose import SkipTest
 
 from IPython.testing import decorators as dec
 from IPython.testing import tools as tt
-from IPython.utils import py3compat
 from IPython.utils.io import capture_output
 from IPython.utils.tempdir import TemporaryDirectory
 from IPython.core import debugger
-
 
 def doctest_refbug():
     """Very nasty problem with references held by multiple runs of a script.
@@ -145,13 +143,12 @@ def doctest_run_option_parser_for_windows():
     """
 
 
-@py3compat.doctest_refactor_print
 def doctest_reset_del():
     """Test that resetting doesn't cause errors in __del__ methods.
 
     In [2]: class A(object):
        ...:     def __del__(self):
-       ...:         print str("Hi")
+       ...:         print(str("Hi"))
        ...:
 
     In [3]: a = A()
@@ -168,7 +165,7 @@ def doctest_reset_del():
 
 class TestMagicRunPass(tt.TempFileMixin):
 
-    def setup(self):
+    def setUp(self):
         content = "a = [1,2,3]\nb = 1"
         self.mktmp(content)
         
@@ -248,9 +245,9 @@ class TestMagicRunSimple(tt.TempFileMixin):
                 raise SkipTest("Test requires pywin32")
         src = ("class A(object):\n"
                "    def __del__(self):\n"
-               "        print 'object A deleted'\n"
+               "        print('object A deleted')\n"
                "a = A()\n")
-        self.mktmp(py3compat.doctest_refactor_print(src))
+        self.mktmp(src)
         if dec.module_not_available('sqlite3'):
             err = 'WARNING: IPython History requires SQLite, your history will not be saved\n'
         else:
@@ -539,6 +536,37 @@ def test_run_tb():
         nt.assert_not_in("execfile", out)
         nt.assert_in("RuntimeError", out)
         nt.assert_equal(out.count("---->"), 3)
+        del ip.user_ns['bar']
+        del ip.user_ns['foo']
+
+
+def test_multiprocessing_run():
+    """Set we can run mutiprocesgin without messing up up main namespace
+
+    Note that import `nose.tools as nt` mdify the value s
+    sys.module['__mp_main__'] so wee need to temporarily set it to None to test
+    the issue.
+    """
+    with TemporaryDirectory() as td:
+        mpm = sys.modules.get('__mp_main__')
+        assert mpm is not None
+        sys.modules['__mp_main__'] = None
+        try:
+            path = pjoin(td, 'test.py')
+            with open(path, 'w') as f:
+                f.write("import multiprocessing\nprint('hoy')")
+            with capture_output() as io:
+                _ip.run_line_magic('run', path)
+                _ip.run_cell("i_m_undefined")
+            out = io.stdout
+            nt.assert_in("hoy", out)
+            nt.assert_not_in("AttributeError", out)
+            nt.assert_in("NameError", out)
+            nt.assert_equal(out.count("---->"), 1)
+        except:
+            raise
+        finally:
+            sys.modules['__mp_main__'] = mpm
 
 @dec.knownfailureif(sys.platform == 'win32', "writes to io.stdout aren't captured on Windows")
 def test_script_tb():

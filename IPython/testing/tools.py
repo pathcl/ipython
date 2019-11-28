@@ -13,6 +13,7 @@ import os
 import re
 import sys
 import tempfile
+import unittest
 
 from contextlib import contextmanager
 from io import StringIO
@@ -250,7 +251,7 @@ def ipexec_validate(fname, expected_out, expected_err='',
     out, err = ipexec(fname, options, commands)
     #print 'OUT', out  # dbg
     #print 'ERR', err  # dbg
-    # If there are any errors, we must check those befor stdout, as they may be
+    # If there are any errors, we must check those before stdout, as they may be
     # more informative than simply having an empty stdout.
     if err:
         if expected_err:
@@ -262,28 +263,32 @@ def ipexec_validate(fname, expected_out, expected_err='',
     nt.assert_equal("\n".join(out.strip().splitlines()), "\n".join(expected_out.strip().splitlines()))
 
 
-class TempFileMixin(object):
+class TempFileMixin(unittest.TestCase):
     """Utility class to create temporary Python/IPython files.
 
     Meant as a mixin class for test cases."""
 
     def mktmp(self, src, ext='.py'):
         """Make a valid python temp file."""
-        fname, f = temp_pyfile(src, ext)
-        self.tmpfile = f
+        fname = temp_pyfile(src, ext)
+        if not hasattr(self, 'tmps'):
+            self.tmps=[]
+        self.tmps.append(fname)
         self.fname = fname
 
     def tearDown(self):
-        if hasattr(self, 'tmpfile'):
-            # If the tmpfile wasn't made because of skipped tests, like in
-            # win32, there's nothing to cleanup.
-            self.tmpfile.close()
-            try:
-                os.unlink(self.fname)
-            except:
-                # On Windows, even though we close the file, we still can't
-                # delete it.  I have no clue why
-                pass
+        # If the tmpfile wasn't made because of skipped tests, like in
+        # win32, there's nothing to cleanup.
+        if hasattr(self, 'tmps'):
+            for fname in self.tmps:
+                # If the tmpfile wasn't made because of skipped tests, like in
+                # win32, there's nothing to cleanup.
+                try:
+                    os.unlink(fname)
+                except:
+                    # On Windows, even though we close the file, we still can't
+                    # delete it.  I have no clue why
+                    pass
 
     def __enter__(self):
         return self
@@ -417,8 +422,7 @@ def mute_warn():
 def make_tempfile(name):
     """ Create an empty, named, temporary file for the duration of the context.
     """
-    f = open(name, 'w')
-    f.close()
+    open(name, 'w').close()
     try:
         yield
     finally:

@@ -15,9 +15,11 @@ rid of that dependency, we could move it there.
 
 
 import os
+import io
 import re
 import sys
 import tempfile
+import subprocess
 
 from io import UnsupportedOperation
 
@@ -96,7 +98,7 @@ def _detect_screen_size(screen_lines_def):
     # There is a bug in curses, where *sometimes* it fails to properly
     # initialize, and then after the endwin() call is made, the
     # terminal is left in an unusable state.  Rather than trying to
-    # check everytime for this (by requesting and comparing termios
+    # check every time for this (by requesting and comparing termios
     # flags each time), we just save the initial terminal state and
     # unconditionally reset it every time.  It's cheaper than making
     # the checks.
@@ -208,9 +210,13 @@ def pager_page(strng, start=0, screen_lines=0, pager_cmd=None):
         else:
             try:
                 retval = None
-                # if I use popen4, things hang. No idea why.
-                #pager,shell_out = os.popen4(pager_cmd)
-                pager = os.popen(pager_cmd, 'w')
+                # Emulate os.popen, but redirect stderr
+                proc = subprocess.Popen(pager_cmd,
+                                shell=True,
+                                stdin=subprocess.PIPE,
+                                stderr=subprocess.DEVNULL
+                                )
+                pager = os._wrap_close(io.TextIOWrapper(proc.stdin), proc)
                 try:
                     pager_encoding = pager.encoding or sys.stdout.encoding
                     pager.write(strng)

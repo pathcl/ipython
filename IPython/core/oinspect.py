@@ -22,7 +22,7 @@ import os
 from textwrap import dedent
 import types
 import io as stdlib_io
-from itertools import zip_longest 
+from itertools import zip_longest
 
 # IPython's own
 from IPython.core import page
@@ -35,6 +35,7 @@ from IPython.utils.dir2 import safe_hasattr
 from IPython.utils.path import compress_user
 from IPython.utils.text import indent
 from IPython.utils.wildcard import list_namespace
+from IPython.utils.wildcard import typestr2type
 from IPython.utils.coloransi import TermColors, ColorScheme, ColorSchemeTable
 from IPython.utils.py3compat import cast_unicode
 from IPython.utils.colorable import Colorable
@@ -75,7 +76,7 @@ info_fields = ['type_name', 'base_class', 'string_form', 'namespace',
                'call_def', 'call_docstring',
                # These won't be printed but will be used to determine how to
                # format the object
-               'ismagic', 'isalias', 'isclass', 'argspec', 'found', 'name'
+               'ismagic', 'isalias', 'isclass', 'found', 'name'
                ]
 
 
@@ -199,26 +200,39 @@ def is_simple_callable(obj):
     return (inspect.isfunction(obj) or inspect.ismethod(obj) or \
             isinstance(obj, _builtin_func_type) or isinstance(obj, _builtin_meth_type))
 
-
+@undoc
 def getargspec(obj):
     """Wrapper around :func:`inspect.getfullargspec` on Python 3, and
     :func:inspect.getargspec` on Python 2.
-    
+
     In addition to functions and methods, this can also handle objects with a
     ``__call__`` attribute.
+
+    DEPRECATED: Deprecated since 7.10. Do not use, will be removed.
     """
+
+    warnings.warn('`getargspec` function is deprecated as of IPython 7.10'
+                  'and will be removed in future versions.', DeprecationWarning, stacklevel=2)
+
     if safe_hasattr(obj, '__call__') and not is_simple_callable(obj):
         obj = obj.__call__
 
     return inspect.getfullargspec(obj)
 
-
+@undoc
 def format_argspec(argspec):
     """Format argspect, convenience wrapper around inspect's.
 
     This takes a dict instead of ordered arguments and calls
     inspect.format_argspec with the arguments in the necessary order.
+
+    DEPRECATED: Do not use; will be removed in future versions.
     """
+    
+    warnings.warn('`format_argspec` function is deprecated as of IPython 7.10'
+                  'and will be removed in future versions.', DeprecationWarning, stacklevel=2)
+
+
     return inspect.formatargspec(argspec['args'], argspec['varargs'],
                                  argspec['varkw'], argspec['defaults'])
 
@@ -327,7 +341,7 @@ def find_source_lines(obj):
       The line number where the object definition starts.
     """
     obj = _get_wrapped(obj)
-    
+
     try:
         try:
             lineno = inspect.getsourcelines(obj)[1]
@@ -362,7 +376,7 @@ class Inspector(Colorable):
         If any exception is generated, None is returned instead and the
         exception is suppressed."""
         try:
-            hdef = oname + str(signature(obj))
+            hdef = _render_signature(signature(obj), oname)
             return cast_unicode(hdef)
         except:
             return None
@@ -582,7 +596,7 @@ class Inspector(Colorable):
 
     def _get_info(self, obj, oname='', formatter=None, info=None, detail_level=0):
         """Retrieve an info dict and format it.
-        
+
         Parameters
         ==========
 
@@ -639,6 +653,7 @@ class Inspector(Colorable):
 
             append_field(_mime, 'File', 'file')
             append_field(_mime, 'Type', 'type_name')
+            append_field(_mime, 'Subclasses', 'subclasses')
 
         else:
             # General Python objects
@@ -653,7 +668,7 @@ class Inspector(Colorable):
 
             append_field(_mime, 'Length', 'length')
             append_field(_mime, 'File', 'file')
-            
+
             # Source or docstring, depending on detail level and whether
             # source found.
             if detail_level > 0 and info['source']:
@@ -664,7 +679,7 @@ class Inspector(Colorable):
             append_field(_mime, 'Class docstring', 'class_docstring', formatter)
             append_field(_mime, 'Init docstring', 'init_docstring', formatter)
             append_field(_mime, 'Call docstring', 'call_docstring', formatter)
-            
+
 
         return self.format_mime(_mime)
 
@@ -752,7 +767,7 @@ class Inspector(Colorable):
                 ds = '<no docstring>'
 
         # store output in a dict, we initialize it here and fill it as we go
-        out = dict(name=oname, found=True, isalias=isalias, ismagic=ismagic)
+        out = dict(name=oname, found=True, isalias=isalias, ismagic=ismagic, subclasses=None)
 
         string_max = 200 # max size of strings to show (snipped if longer)
         shalf = int((string_max - 5) / 2)
@@ -859,6 +874,12 @@ class Inspector(Colorable):
             if init_ds:
                 out['init_docstring'] = init_ds
 
+            names = [sub.__name__ for sub in type.__subclasses__(obj)]
+            if len(names) < 10:
+                all_names = ', '.join(names)
+            else:
+                all_names = ', '.join(names[:10]+['...'])
+            out['subclasses'] = all_names
         # and class docstring for instances:
         else:
             # reconstruct the function definition and print it:
@@ -908,33 +929,6 @@ class Inspector(Colorable):
                 if call_ds:
                     out['call_docstring'] = call_ds
 
-        # Compute the object's argspec as a callable.  The key is to decide
-        # whether to pull it from the object itself, from its __init__ or
-        # from its __call__ method.
-
-        if inspect.isclass(obj):
-            # Old-style classes need not have an __init__
-            callable_obj = getattr(obj, "__init__", None)
-        elif callable(obj):
-            callable_obj = obj
-        else:
-            callable_obj = None
-
-        if callable_obj is not None:
-            try:
-                argspec = getargspec(callable_obj)
-            except Exception:
-                # For extensions/builtins we can't retrieve the argspec
-                pass
-            else:
-                # named tuples' _asdict() method returns an OrderedDict, but we
-                # we want a normal
-                out['argspec'] = argspec_dict = dict(argspec._asdict())
-                # We called this varkw before argspec became a named tuple.
-                # With getfullargspec it's also called varkw.
-                if 'varkw' not in argspec_dict:
-                    argspec_dict['varkw'] = argspec_dict.pop('keywords')
-
         return object_info(**out)
 
     @staticmethod
@@ -955,7 +949,7 @@ class Inspector(Colorable):
             return False
 
     def psearch(self,pattern,ns_table,ns_search=[],
-                ignore_case=False,show_all=False):
+                ignore_case=False,show_all=False, *, list_types=False):
         """Search namespaces with wildcards for objects.
 
         Arguments:
@@ -974,12 +968,19 @@ class Inspector(Colorable):
 
           - show_all(False): show all names, including those starting with
             underscores.
+            
+          - list_types(False): list all available object types for object matching.
         """
         #print 'ps pattern:<%r>' % pattern # dbg
 
         # defaults
         type_pattern = 'all'
         filter = ''
+
+        # list all object types
+        if list_types:
+            page.page('\n'.join(sorted(typestr2type)))
+            return
 
         cmds = pattern.split()
         len_cmds  =  len(cmds)
@@ -1012,3 +1013,46 @@ class Inspector(Colorable):
             search_result.update(tmp_res)
 
         page.page('\n'.join(sorted(search_result)))
+
+
+def _render_signature(obj_signature, obj_name):
+    """
+    This was mostly taken from inspect.Signature.__str__.
+    Look there for the comments.
+    The only change is to add linebreaks when this gets too long.
+    """
+    result = []
+    pos_only = False
+    kw_only = True
+    for param in obj_signature.parameters.values():
+        if param.kind == inspect._POSITIONAL_ONLY:
+            pos_only = True
+        elif pos_only:
+            result.append('/')
+            pos_only = False
+
+        if param.kind == inspect._VAR_POSITIONAL:
+            kw_only = False
+        elif param.kind == inspect._KEYWORD_ONLY and kw_only:
+            result.append('*')
+            kw_only = False
+
+        result.append(str(param))
+
+    if pos_only:
+        result.append('/')
+
+    # add up name, parameters, braces (2), and commas
+    if len(obj_name) + sum(len(r) + 2 for r in result) > 75:
+        # This doesn’t fit behind “Signature: ” in an inspect window.
+        rendered = '{}(\n{})'.format(obj_name, ''.join(
+            '    {},\n'.format(r) for r in result)
+        )
+    else:
+        rendered = '{}({})'.format(obj_name, ', '.join(result))
+
+    if obj_signature.return_annotation is not inspect._empty:
+        anno = inspect.formatannotation(obj_signature.return_annotation)
+        rendered += ' -> {}'.format(anno)
+
+    return rendered

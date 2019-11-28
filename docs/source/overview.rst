@@ -208,7 +208,7 @@ of the `Jupyter` project, which includes ``jupyter console``,  ``jupyter
 qtconsole``, and ``jupyter notebook``.
 
 As an example, this means that when you start ``jupyter qtconsole``, you're
-really starting two processes, a kernel and a Qt-based client can send
+really starting two processes, a kernel and a Qt-based client which can send
 commands to and receive results from that kernel. If there is already a kernel
 running that you want to connect to, you can pass the  ``--existing`` flag
 which will skip initiating a new kernel and connect to the most recent kernel,
@@ -217,29 +217,30 @@ running, use the ``%connect_info`` magic to get the unique connection file,
 which will be something like ``--existing kernel-19732.json`` but with
 different numbers which correspond to the Process ID of the kernel.
 
-You can read more about using `jupyter qtconsole 
-<http://jupyter.org/qtconsole/>`_, and
+You can read more about using `jupyter qtconsole
+<https://jupyter.org/qtconsole/>`_, and
 `jupyter notebook <http://jupyter-notebook.readthedocs.io/en/latest/>`_. There
-is also a :ref:`message spec <messaging>` which documents the protocol for 
+is also a :ref:`message spec <messaging>` which documents the protocol for
 communication between kernels
 and clients.
 
 .. seealso::
-    
+
     `Frontend/Kernel Model`_ example notebook
 
 
 Interactive parallel computing
 ==============================
 
-    
+
 This functionality is optional and now part of the `ipyparallel
 <http://ipyparallel.readthedocs.io/>`_ project.
 
 Portability and Python requirements
 -----------------------------------
 
-Version 6.0+ supports compatibility with Python 3.3 and higher.
+Version 7.0+ supports Python 3.4 and higher.
+Versions 6.x support Python 3.3 and higher.
 Versions 2.0 to 5.x work with Python 2.7.x releases and Python 3.3 and higher.
 Version 1.0 additionally worked with Python 2.6 and 3.2.
 Version 0.12 was the first version to fully support Python 3.

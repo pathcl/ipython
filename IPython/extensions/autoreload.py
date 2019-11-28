@@ -115,10 +115,10 @@ import sys
 import traceback
 import types
 import weakref
+import gc
 from importlib import import_module
+from importlib.util import source_from_cache
 from imp import reload
-
-from IPython.utils import openpy
 
 #------------------------------------------------------------------------------
 # Autoreload functionality
@@ -195,7 +195,7 @@ class ModuleReloader(object):
             py_filename = filename
         else:
             try:
-                py_filename = openpy.source_from_cache(filename)
+                py_filename = source_from_cache(filename)
             except ValueError:
                 return None, None
 
@@ -268,14 +268,28 @@ def update_function(old, new):
             pass
 
 
+def update_instances(old, new):
+    """Use garbage collector to find all instances that refer to the old
+    class definition and update their __class__ to point to the new class
+    definition"""
+    
+    refs = gc.get_referrers(old)
+
+    for ref in refs:
+        if type(ref) is old:
+            ref.__class__ = new
+
+
 def update_class(old, new):
     """Replace stuff in the __dict__ of a class, and upgrade
-    method code objects"""
+    method code objects, and add new methods, if any"""
     for key in list(old.__dict__.keys()):
         old_obj = getattr(old, key)
         try:
             new_obj = getattr(new, key)
-            if old_obj == new_obj:
+            # explicitly checking that comparison returns True to handle
+            # cases where `==` doesn't return a boolean.
+            if (old_obj == new_obj) is True:
                 continue
         except AttributeError:
             # obsolete attribute: remove it
@@ -291,6 +305,16 @@ def update_class(old, new):
             setattr(old, key, getattr(new, key))
         except (AttributeError, TypeError):
             pass # skip non-writable attributes
+
+    for key in list(new.__dict__.keys()):
+        if key not in list(old.__dict__.keys()):
+            try:
+                setattr(old, key, getattr(new, key))
+            except (AttributeError, TypeError):
+                pass # skip non-writable attributes
+
+    # update all instances of class
+    update_instances(old, new)
 
 
 def update_property(old, new):
@@ -332,7 +356,7 @@ class StrongRef(object):
         return self.obj
 
 
-def superreload(module, reload=reload, old_objects={}):
+def superreload(module, reload=reload, old_objects=None):
     """Enhanced version of the builtin reload function.
 
     superreload remembers objects previously in the module, and
@@ -342,6 +366,8 @@ def superreload(module, reload=reload, old_objects={}):
     - clears the module's namespace before reloading
 
     """
+    if old_objects is None:
+        old_objects = {}
 
     # collect old objects in the module
     for name, obj in list(module.__dict__.items()):

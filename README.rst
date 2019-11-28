@@ -10,6 +10,10 @@
 .. image:: https://www.codetriage.com/ipython/ipython/badges/users.svg
     :target: https://www.codetriage.com/ipython/ipython/
 
+.. image:: https://raster.shields.io/badge/Follows-NEP29-brightgreen.png
+    :target: https://numpy.org/neps/nep-0029-deprecation_policy.html
+
+
 ===========================================
  IPython: Productive Interactive Computing
 ===========================================
@@ -18,12 +22,18 @@ Overview
 ========
 
 Welcome to IPython.  Our full documentation is available on `ipython.readthedocs.io
-<https://ipython.readthedocs.io/en/stable/>`_ and contains information on how to install, use and
+<https://ipython.readthedocs.io/en/stable/>`_ and contains information on how to install, use, and
 contribute to the project.
 
 **IPython versions and Python Support**
 
-**IPython 6** requires Python version 3.3 and above.
+Starting with IPython 7.10, IPython follows `NEP 29 <https://numpy.org/neps/nep-0029-deprecation_policy.html>`_
+
+**IPython 7.10+** requires Python version 3.6 and above.
+
+**IPython 7.0** requires Python version 3.5 and above.
+
+**IPython 6.x** requires Python version 3.3 and above.
 
 **IPython 5.x LTS** is the compatible release for Python 2.7.
 If you require Python 2 support, you **must** use IPython 5.x LTS. Please
@@ -31,7 +41,7 @@ update your project configurations and requirements as necessary.
 
 
 The Notebook, Qt console and a number of other pieces are now parts of *Jupyter*.
-See the `Jupyter installation docs <http://jupyter.readthedocs.io/en/latest/install.html>`__
+See the `Jupyter installation docs <https://jupyter.readthedocs.io/en/latest/install.html>`__
 if you want to use these.
 
 
@@ -41,7 +51,7 @@ Development and Instant running
 ===============================
 
 You can find the latest version of the development documentation on `readthedocs
-<http://ipython.readthedocs.io/en/latest/>`_.
+<https://ipython.readthedocs.io/en/latest/>`_.
 
 You can run IPython from this directory without even installing it system-wide
 by typing at the terminal::
@@ -49,11 +59,11 @@ by typing at the terminal::
    $ python -m IPython
 
 Or see the `development installation docs
-<http://ipython.readthedocs.io/en/latest/install/install.html#installing-the-development-version>`_
+<https://ipython.readthedocs.io/en/latest/install/install.html#installing-the-development-version>`_
 for the latest revision on read the docs.
 
 Documentation and installation instructions for older version of IPython can be
-found on the `IPython website <http://ipython.org/documentation.html>`_
+found on the `IPython website <https://ipython.org/documentation.html>`_
 
 
 
@@ -68,14 +78,14 @@ Support version.
 
 If you are encountering this error message you are likely trying to install or
 use IPython from source. You need to checkout the remote 5.x branch. If you are
-using git the following should work:
+using git the following should work::
 
   $ git fetch origin
   $ git checkout 5.x
 
 If you encounter this error message with a regular install of IPython, then you
 likely need to update your package manager, for example if you are using `pip`
-check the version of pip with
+check the version of pip with::
 
   $ pip --version
 
@@ -85,7 +95,7 @@ manager.
 
 For more information see one of our blog posts:
 
-    http://blog.jupyter.org/2016/07/08/ipython-5-0-released/
+    https://blog.jupyter.org/release-of-ipython-5-0-8ce60b8d2e8e
 
 As well as the following Pull-Request for discussion:
 
@@ -93,7 +103,7 @@ As well as the following Pull-Request for discussion:
 
 This error does also occur if you are invoking ``setup.py`` directly – which you
 should not – or are using ``easy_install`` If this is the case, use ``pip
-install .`` (instead of ``setup.py install`` , and ``pip install -e .`` instead
+install .`` instead of ``setup.py install`` , and ``pip install -e .`` instead
 of ``setup.py develop`` If you are depending on IPython as a dependency you may
 also want to have a conditional dependency on IPython depending on the Python
 version::
@@ -107,3 +117,15 @@ version::
         ...
         install_requires=install_req
     )
+
+Alternatives to IPython
+=======================
+
+IPython may not be to your taste; if that's the case there might be similar
+project that you might want to use:
+
+- the classic Python REPL.
+- `bpython <https://bpython-interpreter.org/>`_
+- `mypython <https://www.asmeurer.com/mypython/>`_
+- `ptpython and ptipython <https://pypi.org/project/ptpython/>`
+- `xonsh <https://xon.sh/>`

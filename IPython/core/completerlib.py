@@ -30,9 +30,9 @@ from time import time
 from zipimport import zipimporter
 
 # Our own imports
-from IPython.core.completer import expand_user, compress_user
-from IPython.core.error import TryNext
-from IPython.utils._process_common import arg_split
+from .completer import expand_user, compress_user
+from .error import TryNext
+from ..utils._process_common import arg_split
 
 # FIXME: this should be pulled in with the right call via the component system
 from IPython import get_ipython
@@ -165,7 +165,7 @@ def try_import(mod: str, only_modules=False) -> List[str]:
     except:
         return []
 
-    m_is_init = hasattr(m, '__file__') and '__init__' in m.__file__
+    m_is_init = '__init__' in (getattr(m, '__file__', '') or '')
 
     completions = []
     if (not hasattr(m, '__file__')) or (not only_modules) or m_is_init:
@@ -185,7 +185,7 @@ def try_import(mod: str, only_modules=False) -> List[str]:
 #-----------------------------------------------------------------------------
 
 def quick_completer(cmd, completions):
-    """ Easily create a trivial completer for a command.
+    r""" Easily create a trivial completer for a command.
 
     Takes either a list of completions, or all completions in string (that will
     be split on whitespace).

@@ -105,7 +105,7 @@ class ApiDocWriter(object):
             if *package_name* is ``sphinx``, then ``sphinx.util`` will
             result in ``.util`` being passed for earching by these
             regexps.  If is None, gives default. Default is:
-            ['\.tests$']
+            ['\\.tests$']
         module_skip_patterns : None or sequence
             Sequence of strings giving URIs of modules to be excluded
             Operates on the module name including preceding URI path,
@@ -113,7 +113,7 @@ class ApiDocWriter(object):
             ``sphinx.util.console`` results in the string to search of
             ``.util.console``
             If is None, gives default. Default is:
-            ['\.setup$', '\._']
+            ['\\.setup$', '\\._']
         names_from__all__ : set, optional
             Modules listed in here will be scanned by doing ``from mod import *``,
             rather than finding function and class definitions by scanning the
@@ -355,7 +355,7 @@ class ApiDocWriter(object):
         >>> mods = dw.discover_modules()
         >>> 'sphinx.util' in mods
         True
-        >>> dw.package_skip_patterns.append('\.util$')
+        >>> dw.package_skip_patterns.append('\\.util$')
         >>> 'sphinx.util' in dw.discover_modules()
         False
         >>>
@@ -392,9 +392,8 @@ class ApiDocWriter(object):
             # write out to file
             outfile = os.path.join(outdir,
                                    m + self.rst_extension)
-            fileobj = open(outfile, 'wt')
-            fileobj.write(api_str)
-            fileobj.close()
+            with open(outfile, 'wt') as fileobj:
+                fileobj.write(api_str)
             written_modules.append(m)
         self.written_modules = written_modules
 
@@ -445,11 +444,10 @@ class ApiDocWriter(object):
             relpath = outdir.replace(relative_to + os.path.sep, '')
         else:
             relpath = outdir
-        idx = open(path,'wt')
-        w = idx.write
-        w('.. AUTO-GENERATED FILE -- DO NOT EDIT!\n\n')
-        w('.. autosummary::\n'
-          '   :toctree: %s\n\n' % relpath)
-        for mod in self.written_modules:
-            w('   %s\n' % mod)
-        idx.close()
+        with open(path,'wt') as idx:
+            w = idx.write
+            w('.. AUTO-GENERATED FILE -- DO NOT EDIT!\n\n')
+            w('.. autosummary::\n'
+            '   :toctree: %s\n\n' % relpath)
+            for mod in self.written_modules:
+                w('   %s\n' % mod)

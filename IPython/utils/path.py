@@ -175,7 +175,8 @@ def get_home_dir(require_writable=False):
     Uses os.path.expanduser('~'), and checks for writability.
 
     See stdlib docs for how this is determined.
-    $HOME is first priority on *ALL* platforms.
+    For Python <3.8, $HOME is first priority on *ALL* platforms.
+    For Python >=3.8 on Windows, %HOME% is no longer considered.
 
     Parameters
     ----------
@@ -202,7 +203,7 @@ def get_home_dir(require_writable=False):
                 import _winreg as wreg  # Py 2
             key = wreg.OpenKey(
                 wreg.HKEY_CURRENT_USER,
-                "Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders"
+                r"Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders"
             )
             homedir = wreg.QueryValueEx(key,'Personal')[0]
             key.Close()

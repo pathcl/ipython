@@ -216,14 +216,34 @@ a :ref:`startup file <startup_files>`::
     def insert_unexpected(event):
         buf = event.current_buffer
         buf.insert_text('The Spanish Inquisition')
-
     # Register the shortcut if IPython is using prompt_toolkit
-    if getattr(ip, 'pt_cli'):
-        registry = ip.pt_cli.application.key_bindings_registry
+    if getattr(ip, 'pt_app', None):
+        registry = ip.pt_app.key_bindings
         registry.add_binding(Keys.ControlN,
                          filter=(HasFocus(DEFAULT_BUFFER)
                                  & ~HasSelection()
                                  & insert_mode))(insert_unexpected)
+
+
+Here is a second example that bind the key sequence ``j``, ``k`` to switch to
+VI input mode to ``Normal`` when in insert mode::
+
+   from IPython import get_ipython
+   from prompt_toolkit.enums import DEFAULT_BUFFER
+   from prompt_toolkit.filters import HasFocus, ViInsertMode
+   from prompt_toolkit.key_binding.vi_state import InputMode
+
+   ip = get_ipython()
+
+   def switch_to_navigation_mode(event):
+      vi_state = event.cli.vi_state
+      vi_state.input_mode = InputMode.NAVIGATION
+
+   if getattr(ip, 'pt_app', None):
+      registry = ip.pt_app.key_bindings
+      registry.add_binding(u'j',u'k',
+                           filter=(HasFocus(DEFAULT_BUFFER)
+                                    & ViInsertMode()))(switch_to_navigation_mode)
 
 For more information on filters and what you can do with the ``event`` object,
 `see the prompt_toolkit docs
@@ -243,7 +263,7 @@ behavior is to likely to insert a new line. If the current code is a simple
 statement like `ord('*')`, then the right behavior is likely to execute. Though
 the exact desired semantics often varies from users to users.
 
-As the exact behavior of :kbd:`Enter` is is ambiguous, it has been special cased
+As the exact behavior of :kbd:`Enter` is ambiguous, it has been special cased
 to allow users to completely configure the behavior they like. Hence you can
 have enter always execute code. If you prefer fancier behavior, you need to get
 your hands dirty and read the ``prompt_toolkit`` and IPython documentation
@@ -282,8 +302,8 @@ IPython configuration::
             else: # insert a newline with auto-indentation...
 
                 if document.line_count > 1: text = text[:document.cursor_position]
-                indent = shell.input_splitter.check_complete(text + '\n')[1] or 0
-                buffer.insert_text('\n' + ' ' * indent)
+                indent = shell.check_complete(text)[1]
+                buffer.insert_text('\n' + indent)
             
                 # if you just wanted a plain newline without any indentation, you
                 # could use `buffer.insert_text('\n')` instead of the lines above

@@ -2,6 +2,39 @@
  5.x Series
 ============
 
+.. _whatsnew580:
+
+IPython 5.8.0
+=============
+
+* Update inspecting function/methods for future-proofing. :ghpull:`11139`
+
+.. _whatsnew570:
+
+IPython 5.7
+===========
+
+* Fix IPython trying to import non-existing matplotlib backends :ghpull:`11087`
+* fix for display hook not publishing object metadata :ghpull:`11101`
+
+.. _whatsnew560:
+
+IPython 5.6
+===========
+
+* In Python 3.6 and above, dictionaries preserve the order items were added to
+  them. On these versions, IPython will display dictionaries in their native
+  order, rather than sorting by the keys (:ghpull:`10958`).
+* :class:`~.IPython.display.ProgressBar` can now be used as an iterator
+  (:ghpull:`10813`).
+* The shell object gains a :meth:`~.InteractiveShell.check_complete` method,
+  to allow a smoother transition to new input processing machinery planned for
+  IPython 7 (:ghpull:`11044`).
+* IPython should start faster, as it no longer looks for all available pygments
+  styles on startup (:ghpull:`10859`).
+
+You can see all the PR marked for the `5.6. milestone <https://github.com/ipython/ipython/pulls?utf8=%E2%9C%93&q=is%3Apr+milestone%3A5.6+is%3Aclosed+NOT+%22Backport+PR%22+>`_,
+and all the `backport versions <https://github.com/ipython/ipython/pulls?utf8=%E2%9C%93&q=is%3Apr%20milestone%3A5.6%20is%3Aclosed%20%22Backport%20PR%22%20>`__.
 
 .. _whatsnew550:
 
@@ -53,8 +86,10 @@ Misc
 You can see all the PR marked for the `5.5. milestone <https://github.com/ipython/ipython/pulls?q=is%3Apr%20milestone%3A5.5%20is%3Aclosed%20NOT%20%22Backport%20PR%22>`_,
 and all the `backport versions <https://github.com/ipython/ipython/pulls?utf8=%E2%9C%93&q=is%3Apr%20milestone%3A5.5%20is%3Aclosed%20%22Backport%20PR%22%20>`_.
 
-
-
+IPython 5.4.1
+=============
+Released a few hours after 5.4, fix a crash when
+``backports.shutil-get-terminal-size`` is not installed. :ghissue:`10629`
 
 .. _whatsnew540:
 
@@ -80,14 +115,13 @@ that allow to customize the class used to start the terminal frontend. This
 should allow user to use custom interfaces, like reviving the former readline
 interface which is now a separate package not maintained by the core team.
 
-
 Define ``_repr_mimebundle_``
 ----------------------------
 
 Object can now define `_repr_mimebundle_` in place of multiple `_repr_*_`
 methods and return a full mimebundle. This greatly simplify many implementation
 and allow to publish custom mimetypes (like geojson, plotly, dataframes....).
-See the ``Custom Display Logic`` example notebook for more information.
+See the ``Custom Display Logic`` example notebook for more informations.
 
 Execution Heuristics
 --------------------
@@ -129,7 +163,7 @@ Miscs
 * Faster shutdown. :ghpull:`10408` 
 * Fix a crash in reverse search. :ghpull:`10371`
 * added ``Completer.backslash_combining_completions`` boolean option to
-  deactivate backslash-tab completion that may conflict with windows path.
+  deactivate backslash-tab completion that may conflict with windows path. 
 
 IPython 5.3
 ===========
@@ -409,5 +443,3 @@ Known Issues:
 
 - Color styles might not adapt to terminal emulator themes. This will need new
   version of Pygments to be released, and can be mitigated with custom themes.
-
-

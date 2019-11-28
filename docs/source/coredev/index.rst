@@ -12,63 +12,35 @@ developers of third party tools and libraries that use IPython should see the
 For instructions on how to make a developer install see :ref:`devinstall`.
 
 Backporting Pull requests
--------------------------
+=========================
 
 All pull requests should usually be made against ``master``, if a Pull Request
 need to be backported to an earlier release; then it should be tagged with the
 correct ``milestone``.
 
 If you tag a pull request with a milestone **before** merging the pull request,
-and the base ref is `master`, then our backport bot should automatically create
+and the base ref is ``master``, then our backport bot should automatically create
 a corresponding pull-request that backport on the correct branch.
 
-If you are an admin on the IPython repository you can also just mention the
+If you have write access to the IPython repository you can also just mention the
 **backport bot** to do the work for you. The bot is evolving so instructions may
 be different. At the time of this writing you can use::
 
-    @meeseeksdev[bot] backport [to <branchname>]
+    @meeseeksdev[bot] backport [to] <branchname>
 
 The bot will attempt to backport the current pull-request and issue a PR if
-possible. If the milestone is set on the issue you can omit the branch to
-backport to.
+possible. 
 
 .. note::
 
-    The ``@`` and ``[dev]`` when mentioning the bot should be optional and can
+    The ``@`` and ``[bot]`` when mentioning the bot should be optional and can
     be omitted.
 
 If the pull request cannot be automatically backported, the bot should tell you
 so on the PR and apply a "Need manual backport" tag to the origin PR.
 
-
-Backport with ghpro
--------------------
-
-We can also use `ghpro <https://pypi.python.org/pypi/ghpro>`
-to automatically list and apply the PR on other branches. For example:
-
-.. code-block:: bash
-    
-    $ backport-pr todo --milestone 5.2
-    [...snip..]
-    The following PRs have been backported
-    9848
-    9851
-    9953
-    9955
-    The following PRs should be backported:
-    9417
-    9863
-    9925
-    9947
-
-    $ backport-pr apply 5.x 9947
-    [...snip...]
-
-
 .. _release_process:
 
-=======================
 IPython release process
 =======================
 
@@ -85,6 +57,9 @@ During the release process, you might need the extra following dependencies:
  - ``ghpro`` to generate the stats
 
 Make sure you have all the required dependencies to run the tests as well.
+
+You can try to ``source tools/release_helper.sh`` when releasing via bash, it 
+should guide you through most of the process.
 
 
 1. Set Environment variables
@@ -149,8 +124,10 @@ If a major release:
     - Edit ``docs/source/whatsnew/index.rst`` to list the new ``github-stats-X``
       file you just created.
 
-    - Remove temporarily the first entry called ``development`` (you'll need to
-      add it back after release).
+    - You do not need to temporarily remove the first entry called
+      ``development``, nor re-add it after the release, it will automatically be
+      hidden when releasing a stable version of IPython (if ``_version_extra``
+      in ``release.py`` is an empty string.
 
       Make sure that the stats file has a header or it won't be rendered in
       the final documentation.
@@ -208,26 +185,31 @@ the build procedure runs OK, and tests other steps in the release process.
 The ``build_release`` script will in particular verify that the version number
 match PEP 440, in order to avoid surprise at the time of build upload.
 
-We encourage creating a test build of the docs as well.
+We encourage creating a test build of the docs as well. 
 
 6. Create and push the new tag
 ------------------------------
 
 Commit the changes to release.py::
 
-    git commit -am "release $VERSION"
+    git commit -am "release $VERSION" -S
     git push origin $BRANCH
+
+(omit the ``-S`` if you are no signing the package)
 
 Create and push the tag::
 
-    git tag -am "release $VERSION" "$VERSION"
-    git push origin --tags
+    git tag -am "release $VERSION" "$VERSION" -s
+    git push origin $VERSION
 
-Update release.py back to ``x.y-dev`` or ``x.y-maint``, and re-add the
-``development`` entry in ``docs/source/whatsnew/index.rst`` and push::
+(omit the ``-s`` if you are no signing the package)
 
-    git commit -am "back to development"
+Update release.py back to ``x.y-dev`` or ``x.y-maint`` commit and push::
+
+    git commit -am "back to development" -S
     git push origin $BRANCH
+
+(omit the ``-S`` if you are no signing the package)
 
 Now checkout the tag we just made::
 
